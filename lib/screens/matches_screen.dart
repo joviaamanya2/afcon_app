@@ -10,14 +10,13 @@ class MatchesScreen extends StatefulWidget {
 class _MatchesScreenState extends State<MatchesScreen>
     with SingleTickerProviderStateMixin {
   static const _tabs = [
-    'Main',
+    'All',
     'Live',
-    'Upcoming',
-    'Premier League',
-    'Super Leagues',
-    'Global',
-    'Local',
-    'LaLiga',
+    'Fixtures',
+    'Results',
+    'Groups',
+    'Standings',
+    'Venues',
   ];
 
   late final TabController _tabController;
@@ -39,14 +38,18 @@ class _MatchesScreenState extends State<MatchesScreen>
     final today = DateTime.now();
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF6F8F6),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16A34A),
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF19251F),
         centerTitle: true,
         title: const Text(
-          'MATCH',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+          'MATCH CENTRE',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.3,
+          ),
         ),
         leading: IconButton(
           tooltip: 'Back',
@@ -58,8 +61,8 @@ class _MatchesScreenState extends State<MatchesScreen>
           controller: _tabController,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white.withValues(alpha: 0.78),
+          labelColor: const Color(0xFF176B46),
+          unselectedLabelColor: const Color(0xFF69766F),
           labelStyle: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w700,
@@ -70,12 +73,8 @@ class _MatchesScreenState extends State<MatchesScreen>
             vertical: 6,
           ),
           indicator: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            gradient: const LinearGradient(
-              colors: [Color(0xFF0F7C3A), Color(0xFF20B957)],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
+            color: const Color(0xFFEAF3ED),
+            borderRadius: BorderRadius.circular(10),
           ),
           tabs: _tabs.map((tab) => Tab(text: tab)).toList(),
         ),
@@ -107,10 +106,7 @@ class _MatchList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final showSample =
-        category == 'Main' ||
-        category == 'Upcoming' ||
-        category == 'Premier League';
+    final showSample = category == 'All' || category == 'Fixtures';
 
     return ListView(
       padding: EdgeInsets.zero,
@@ -118,22 +114,26 @@ class _MatchList extends StatelessWidget {
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 10),
-          color: const Color(0xFFF0F1F3),
+          color: Colors.white,
           child: Text(
             'Today, $dateLabel',
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Color(0xFF858B91), fontSize: 13),
+            style: const TextStyle(
+              color: Color(0xFF69766F),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
         if (showSample)
           const _FixtureRow(
             competition: 'SAMPLE FIXTURE · NOT OFFICIAL AFCON DATA',
-            homeTeam: 'Manchester United',
-            awayTeam: 'Arsenal',
-            homeInitial: 'M',
-            awayInitial: 'A',
-            homeColor: Color(0xFFDA291C),
-            awayColor: Color(0xFFEF0107),
+            homeTeam: 'Uganda',
+            awayTeam: 'Ghana',
+            homeInitial: 'U',
+            awayInitial: 'G',
+            homeColor: Color(0xFF176B46),
+            awayColor: Color(0xFFD84343),
             time: '19:45',
           )
         else
@@ -144,15 +144,27 @@ class _MatchList extends StatelessWidget {
                 Icon(
                   category == 'Live'
                       ? Icons.sensors_rounded
-                      : Icons.sports_score_rounded,
-                  color: const Color(0xFF16A34A),
+                      : category == 'Venues'
+                          ? Icons.stadium_rounded
+                          : category == 'Groups' || category == 'Standings'
+                              ? Icons.table_chart_rounded
+                              : Icons.sports_score_rounded,
+                  color: const Color(0xFF176B46),
                   size: 34,
                 ),
                 const SizedBox(height: 10),
                 Text(
                   category == 'Live'
                       ? 'No live matches right now'
-                      : 'No $category matches to show yet',
+                      : category == 'Results'
+                          ? 'Results will appear here'
+                          : category == 'Groups'
+                              ? 'Group information is coming soon'
+                              : category == 'Standings'
+                                  ? 'Tournament standings are coming soon'
+                                  : category == 'Venues'
+                                      ? 'Confirmed match venues are coming soon'
+                                      : 'No matches to show yet',
                   style: const TextStyle(
                     color: Color(0xFF40464B),
                     fontSize: 14,
@@ -197,9 +209,12 @@ class _FixtureRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 13, 16, 15),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFEFF0F1))),
+      margin: const EdgeInsets.fromLTRB(14, 10, 14, 2),
+      padding: const EdgeInsets.fromLTRB(14, 13, 14, 15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE6EBE7)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

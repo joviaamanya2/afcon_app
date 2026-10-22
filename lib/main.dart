@@ -1,20 +1,24 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'screens/explore_screen.dart';
+import 'screens/afcon_feature_screen.dart';
 import 'screens/matches_screen.dart';
 import 'screens/teams_players_screen.dart';
 import 'screens/updates_screen.dart';
+import './screens/afcon_theme.dart';
 
 void main() {
   runApp(const AfconApp());
 }
 
-const _navy = Color(0xFF102A43);
-const _green = Color(0xFF147D55);
-const _gold = Color(0xFFF3B63F);
-const _ink = Color(0xFF172B4D);
-const _muted = Color(0xFF627D98);
-const _canvas = Color(0xFFF4F7F8);
+const _navy = Color(0xFF172B27);
+const _green = Color(0xFF176B46);
+const _gold = Color(0xFFD8A441);
+const _ink = Color(0xFF19251F);
+const _muted = Color(0xFF69766F);
+const _canvas = Color(0xFFF6F8F6);
 
 class AfconApp extends StatelessWidget {
   const AfconApp({super.key});
@@ -24,16 +28,7 @@ class AfconApp extends StatelessWidget {
     return MaterialApp(
       title: 'AFCON Fan',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        scaffoldBackgroundColor: _canvas,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: _green,
-          primary: _green,
-          surface: Colors.white,
-        ),
-        fontFamily: 'Roboto',
-      ),
+      theme: buildAfconTheme(),
       home: const AfconHome(),
     );
   }
@@ -52,9 +47,7 @@ class _AfconHomeState extends State<AfconHome> {
 
   void _openMatches() {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) => const MatchesScreen(),
-      ),
+      MaterialPageRoute<void>(builder: (context) => const MatchesScreen()),
     );
   }
 
@@ -70,16 +63,28 @@ class _AfconHomeState extends State<AfconHome> {
 
     if (title == 'Updates') {
       Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (context) => const UpdatesScreen()),
+      );
+      return;
+    }
+
+    if ([
+      'Media',
+      'Events',
+      'Venues',
+      'Ask AFCON',
+      'Follow teams',
+      'Notifications',
+    ].contains(title)) {
+      Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (context) => const UpdatesScreen(),
+          builder: (context) => AfconFeatureScreen(feature: title),
         ),
       );
       return;
     }
 
     final details = switch (title) {
-      'Media' =>
-        'Explore approved AFCON news, interviews, photos and video content.',
       _ => 'Official AFCON content will appear here when it is available.',
     };
 
@@ -125,13 +130,49 @@ class _AfconHomeState extends State<AfconHome> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
+        elevation: 0,
         titleSpacing: 20,
         title: const _BrandMark(),
         actions: [
+          IconButton(
+            tooltip: 'Notifications',
+            onPressed: () => _openShortcut('Notifications'),
+            style: IconButton.styleFrom(
+              foregroundColor: _green,
+              backgroundColor: const Color(0xFFEAF3ED),
+              shape: const CircleBorder(),
+            ),
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.notifications_none_rounded, size: 22),
+                Positioned(
+                  right: -2,
+                  top: -2,
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFD84343),
+                      shape: BoxShape.circle,
+                      border: Border.fromBorderSide(
+                        BorderSide(color: Colors.white, width: 1.5),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           Builder(
             builder: (context) => IconButton(
               tooltip: 'Open menu',
               onPressed: () => Scaffold.of(context).openEndDrawer(),
+              style: IconButton.styleFrom(
+                foregroundColor: _green,
+                backgroundColor: const Color(0xFFEAF3ED),
+                shape: const CircleBorder(),
+              ),
               icon: const Icon(Icons.menu_rounded),
             ),
           ),
@@ -202,7 +243,6 @@ class _AfconHomeState extends State<AfconHome> {
               children: [
                 _HomePage(
                   onOpenMatches: _openMatches,
-                  onOpenExplore: () => setState(() => _selectedIndex = 2),
                   onOpenShortcut: _openShortcut,
                   language: _selectedLanguage,
                 ),
@@ -213,11 +253,9 @@ class _AfconHomeState extends State<AfconHome> {
                   detail: 'Official match information has not been connected yet. Dates, scores and venues will be shown here once an approved source is available.',
                 ),
                 const ExploreScreen(),
-                const _InfoPage(
-                  icon: Icons.forum_rounded,
-                  title: 'Community',
-                  subtitle: 'A place for fans to connect and share the moment.',
-                  detail: 'Community discussions will be introduced with reporting tools, clear rules and active moderation.',
+                const AfconFeatureScreen(
+                  feature: 'Community',
+                  showAppBar: false,
                 ),
               ],
             ),
@@ -361,32 +399,29 @@ class _LanguagePicker extends StatelessWidget {
 class _HomePage extends StatelessWidget {
   const _HomePage({
     required this.onOpenMatches,
-    required this.onOpenExplore,
     required this.onOpenShortcut,
     required this.language,
   });
 
   final VoidCallback onOpenMatches;
-  final VoidCallback onOpenExplore;
   final ValueChanged<String> onOpenShortcut;
   final String language;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 30),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 30),
       children: [
         _QuickLinks(onSelected: onOpenShortcut),
         const SizedBox(height: 2),
         _TodaysMatches(onOpenMatches: onOpenMatches),
-        const SizedBox(height: 24),
+        const SizedBox(height: 14),
         _WelcomeBanner(language: language),
-        const SizedBox(height: 26),
         const SizedBox(height: 24),
         _SectionHeading(
           title: 'Happening around you',
           actionLabel: 'Explore events',
-          onAction: onOpenExplore,
+          onAction: () => onOpenShortcut('Events'),
         ),
         const SizedBox(height: 12),
         const _EventsPlaceholder(),
@@ -435,8 +470,8 @@ class _TodaysMatches extends StatelessWidget {
             children: [
               _TodayMatchCard(
                 dateLabel: '${now.day} $month',
-                homeTeam: 'Manchester United',
-                awayTeam: 'Arsenal',
+                homeTeam: 'Uganda',
+                awayTeam: 'Ghana',
                 time: '19:45',
                 onTap: onOpenMatches,
               ),
@@ -448,91 +483,206 @@ class _TodaysMatches extends StatelessWidget {
   }
 }
 
-class _WelcomeBanner extends StatelessWidget {
+class _WelcomeBanner extends StatefulWidget {
   const _WelcomeBanner({required this.language});
 
   final String language;
 
   @override
+  State<_WelcomeBanner> createState() => _WelcomeBannerState();
+}
+
+class _WelcomeBannerState extends State<_WelcomeBanner> {
+  static const _images = ['assets/images/main.webp', 'assets/images/cup.png'];
+
+  final _pageController = PageController();
+  Timer? _rotationTimer;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _rotationTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted || !_pageController.hasClients) return;
+      final nextPage = (_currentPage + 1) % _images.length;
+      _pageController.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 650),
+        curve: Curves.easeInOutCubic,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _rotationTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [_navy, Color(0xFF1C5360)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
         borderRadius: BorderRadius.circular(22),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -14,
-            bottom: -28,
-            child: Icon(
-              Icons.sports_soccer_rounded,
-              size: 132,
-              color: Colors.white.withValues(alpha: 0.07),
-            ),
+        color: _navy,
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1A102A43),
+            blurRadius: 18,
+            offset: Offset(0, 7),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'YOUR TOURNAMENT, YOUR LANGUAGE',
-                  style: TextStyle(
-                    color: Color(0xFFFFD978),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 15),
-              const Text(
-                'The beautiful game,\ncloser to everyone.',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 26,
-                  height: 1.12,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Your experience is set to $language. Follow matches, explore events and enjoy the conversation.',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.78),
-                  fontSize: 13,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 18),
-              const Row(
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 150,
+            child: PageView.builder(
+              key: const Key('home-hero-image-carousel'),
+              controller: _pageController,
+              itemCount: _images.length,
+              onPageChanged: (page) => setState(() => _currentPage = page),
+              itemBuilder: (context, index) => Stack(
+                fit: StackFit.expand,
                 children: [
-                  Icon(Icons.translate_rounded, color: _gold, size: 18),
-                  SizedBox(width: 7),
-                  Text(
-                    'Football for every language',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                  Image.asset(
+                    _images[index],
+                    key: ValueKey(_images[index]),
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
+                  ),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.03),
+                          _navy.withValues(alpha: 0.88),
+                        ],
+                        stops: const [0.2, 1],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 18,
+                    right: 18,
+                    bottom: 14,
+                    child: Text(
+                      index == 0
+                          ? 'THE ROAD TO AFCON 2025'
+                          : 'ONE TROPHY. ONE CONTINENT.',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1,
+                        shadows: [Shadow(color: Colors.black45, blurRadius: 8)],
+                      ),
                     ),
                   ),
                 ],
               ),
-            ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'YOUR TOURNAMENT, YOUR LANGUAGE',
+                        style: TextStyle(
+                          color: Color(0xFFFFD978),
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    Row(
+                      children: List.generate(
+                        _images.length,
+                        (index) => Semantics(
+                          button: true,
+                          selected: _currentPage == index,
+                          label: 'Show AFCON image ${index + 1}',
+                          child: GestureDetector(
+                            key: Key('home-hero-indicator-$index'),
+                            onTap: () => _pageController.animateToPage(
+                              index,
+                              duration: const Duration(milliseconds: 450),
+                              curve: Curves.easeInOutCubic,
+                            ),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 250),
+                              width: _currentPage == index ? 18 : 7,
+                              height: 7,
+                              margin: const EdgeInsets.only(left: 5),
+                              decoration: BoxDecoration(
+                                color: _currentPage == index
+                                    ? _gold
+                                    : Colors.white.withValues(alpha: 0.5),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'The beautiful game,\ncloser to everyone.',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 23,
+                    height: 1.12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Your experience is set to ${widget.language}. Follow matches, explore events and enjoy the conversation.',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.78),
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Row(
+                  children: [
+                    Icon(Icons.translate_rounded, color: _gold, size: 18),
+                    SizedBox(width: 7),
+                    Text(
+                      'Football for every language',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -602,14 +752,14 @@ class _TodayMatchCard extends StatelessWidget {
       width: 310,
       child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(14),
           child: Container(
-            padding: const EdgeInsets.all(13),
+            padding: const EdgeInsets.all(11),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: const Color(0xFFE8EEF0)),
               boxShadow: const [
                 BoxShadow(
@@ -651,8 +801,8 @@ class _TodayMatchCard extends StatelessWidget {
                     Expanded(
                       child: _HomeFixtureTeam(
                         name: homeTeam,
-                        initial: 'M',
-                        color: const Color(0xFFDA291C),
+                        initial: 'U',
+                        color: _green,
                       ),
                     ),
                     const Padding(
@@ -669,8 +819,8 @@ class _TodayMatchCard extends StatelessWidget {
                     Expanded(
                       child: _HomeFixtureTeam(
                         name: awayTeam,
-                        initial: 'A',
-                        color: const Color(0xFFEF0107),
+                        initial: 'G',
+                        color: const Color(0xFFD84343),
                         alignEnd: true,
                       ),
                     ),
@@ -701,8 +851,9 @@ class _HomeFixtureTeam extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisAlignment:
-          alignEnd ? MainAxisAlignment.end : MainAxisAlignment.start,
+      mainAxisAlignment: alignEnd
+          ? MainAxisAlignment.end
+          : MainAxisAlignment.start,
       children: [
         if (alignEnd) ...[
           Flexible(
@@ -955,6 +1106,18 @@ class _QuickLinks extends StatelessWidget {
             label: 'Updates',
             onTap: () => onSelected('Updates'),
           ),
+          const SizedBox(width: 9),
+          _QuickLink(
+            icon: Icons.star_outline_rounded,
+            label: 'Follow teams',
+            onTap: () => onSelected('Follow teams'),
+          ),
+          const SizedBox(width: 9),
+          _QuickLink(
+            icon: Icons.auto_awesome_rounded,
+            label: 'Ask AFCON',
+            onTap: () => onSelected('Ask AFCON'),
+          ),
         ],
       ),
     );
@@ -981,7 +1144,7 @@ class _QuickLink extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(13),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(13),
             border: Border.all(color: const Color(0xFFE5ECEE)),
@@ -1180,7 +1343,7 @@ class _SurfaceCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFE8EEF0)),
         boxShadow: const [
           BoxShadow(

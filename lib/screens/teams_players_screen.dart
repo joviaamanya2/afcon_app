@@ -8,140 +8,135 @@ class TeamsPlayersScreen extends StatefulWidget {
 }
 
 class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
-  static const _green = Color(0xFF147D55);
-  static const _ink = Color(0xFF172B4D);
-  static const _muted = Color(0xFF627D98);
+  static const _green = Color(0xFF176B46);
+  static const _ink = Color(0xFF19251F);
+  static const _muted = Color(0xFF69766F);
   static const _leagues = [
-    'Premier League',
-    'La Liga',
-    'Serie A',
-    'Bundesliga',
+    'East Africa',
+    'West Africa',
+    'North Africa',
+    'Central Africa',
+    'Southern Africa',
   ];
   static const _clubs = <String, List<_Club>>{
-    'Premier League': [
-      _Club('Manchester United', '1878', 'M', Color(0xFFDA291C)),
-      _Club('Arsenal', '1886', 'A', Color(0xFFEF0107)),
-      _Club('Liverpool', '1892', 'L', Color(0xFFC8102E)),
-      _Club('Manchester City', '1880', 'C', Color(0xFF6CABDD)),
+    'East Africa': [
+      _Club('Uganda', '2020', 'U', Color(0xFF126B45)),
+      _Club('Kenya', '2020', 'K', Color(0xFFD84343)),
+      _Club('Tanzania', '2020', 'T', Color(0xFF25845C)),
+      _Club('Rwanda', '2020', 'R', Color(0xFF3976B8)),
+      _Club('Burundi', '2020', 'B', Color(0xFFB84043)),
+      _Club('Sudan', '2020', 'S', Color(0xFF25845C)),
+      _Club('Ethiopia', '2020', 'E', Color(0xFF25845C)),
+      _Club('South Sudan', '2020', 'S', Color(0xFF3976B8)),
+      _Club('Eritrea', '2020', 'E', Color(0xFFB84043)),
+      _Club('Djibouti', '2020', 'D', Color(0xFF3976B8)),
+      _Club('Somalia', '2020', 'S', Color(0xFF3976B8)),
     ],
-    'La Liga': [
-      _Club('Real Madrid', '1902', 'R', Color(0xFF8B7BB8)),
-      _Club('Barcelona', '1899', 'B', Color(0xFF004D98)),
-      _Club('Atlético Madrid', '1903', 'A', Color(0xFFCB3524)),
+    'West Africa': [
+      _Club('Senegal', '2020', 'S', Color(0xFF16834B)),
+      _Club('Ivory Coast', '2020', 'C', Color(0xFFE98232)),
+      _Club('Ghana', '2020', 'G', Color(0xFFD84343)),
+      _Club('Nigeria', '2020', 'N', Color(0xFF16834B)),
+      _Club('Mali', '2020', 'M', Color(0xFF16834B)),
+      _Club('Burkina Faso', '2020', 'B', Color(0xFFD84343)),
+      _Club('Guinea', '2020', 'G', Color(0xFFD84343)),
+      _Club('The Gambia', '2020', 'G', Color(0xFFB84043)),
+      _Club('Togo', '2020', 'T', Color(0xFF16834B)),
+      _Club('Benin', '2020', 'B', Color(0xFF16834B)),
+      _Club('Niger', '2020', 'N', Color(0xFFE98232)),
+      _Club('Liberia', '2020', 'L', Color(0xFFD84343)),
+      _Club('Sierra Leone', '2020', 'S', Color(0xFF25845C)),
+      _Club('Mauritania', '2020', 'M', Color(0xFF16834B)),
+      _Club('Guinea-Bissau', '2020', 'G', Color(0xFFD84343)),
+      _Club('Cabo Verde', '2020', 'C', Color(0xFF3976B8)),
     ],
-    'Serie A': [
-      _Club('Juventus', '1897', 'J', Color(0xFF303030)),
-      _Club('Inter Milan', '1908', 'I', Color(0xFF00529F)),
-      _Club('AC Milan', '1899', 'M', Color(0xFFCC0000)),
+    'North Africa': [
+      _Club('Morocco', '2020', 'M', Color(0xFFD84343)),
+      _Club('Egypt', '2020', 'E', Color(0xFFD84343)),
+      _Club('Algeria', '2020', 'A', Color(0xFF16834B)),
+      _Club('Tunisia', '2020', 'T', Color(0xFFD84343)),
+      _Club('Libya', '2020', 'L', Color(0xFF16834B)),
     ],
-    'Bundesliga': [
-      _Club('Bayern Munich', '1900', 'B', Color(0xFFDC052D)),
-      _Club('Borussia Dortmund', '1909', 'D', Color(0xFFFDE100)),
+    'Central Africa': [
+      _Club('Cameroon', '2020', 'C', Color(0xFFD84343)),
+      _Club('DR Congo', '2020', 'D', Color(0xFF3976B8)),
+      _Club('Congo', '2020', 'C', Color(0xFF16834B)),
+      _Club('Gabon', '2020', 'G', Color(0xFF25845C)),
+      _Club('Equatorial Guinea', '2020', 'E', Color(0xFFD84343)),
+      _Club('Chad', '2020', 'C', Color(0xFFE98232)),
+      _Club('Central African Republic', '2020', 'C', Color(0xFF3976B8)),
+      _Club('Sao Tome and Principe', '2020', 'S', Color(0xFF16834B)),
+    ],
+    'Southern Africa': [
+      _Club('South Africa', '2020', 'S', Color(0xFF16834B)),
+      _Club('Zambia', '2020', 'Z', Color(0xFF16834B)),
+      _Club('Angola', '2020', 'A', Color(0xFFD84343)),
+      _Club('Zimbabwe', '2020', 'Z', Color(0xFF16834B)),
+      _Club('Botswana', '2020', 'B', Color(0xFF3976B8)),
+      _Club('Namibia', '2020', 'N', Color(0xFF3976B8)),
+      _Club('Mozambique', '2020', 'M', Color(0xFF16834B)),
+      _Club('Malawi', '2020', 'M', Color(0xFFD84343)),
+      _Club('Madagascar', '2020', 'M', Color(0xFFD84343)),
+      _Club('Lesotho', '2020', 'L', Color(0xFF3976B8)),
+      _Club('Eswatini', '2020', 'E', Color(0xFF25845C)),
+      _Club('Comoros', '2020', 'C', Color(0xFF16834B)),
+      _Club('Mauritius', '2020', 'M', Color(0xFFD84343)),
+      _Club('Seychelles', '2020', 'S', Color(0xFF3976B8)),
     ],
   };
-
   static const _samplePlayers = <String, List<_Player>>{
-    'Manchester United': [
-      _Player('Bruno Fernandes', 'Midfielder', '8', {
-        'Goals': 8,
-        'Assists': 7,
-        'Yellow cards': 4,
-        'Red cards': 0,
-        'Penalty goals': 2,
-        'Shots': 41,
-        'Shots on target': 19,
-        'Dribbles attempted': 38,
-        'Successful dribbles': 21,
-        'Times fouled': 24,
-        'Big chances created': 11,
-        'Big chances missed': 5,
-        'Distance covered (km)': 112,
-        'Sprints': 186,
+    'Uganda': [
+      _Player('Denis Onyango', 'Goalkeeper', '18'),
+      _Player('Khalid Aucho', 'Midfielder', '8'),
+      _Player('Rogers Mato', 'Forward', '17', {
+        'Goals': 4,
+        'Assists': 2,
+        'Yellow cards': 1,
       }),
-      _Player('Marcus Rashford', 'Forward', '10', {
-        'Goals': 6,
+    ],
+    'Ghana': [
+      _Player('Mohammed Kudus', 'Midfielder', '20', {
+        'Goals': 5,
         'Assists': 3,
         'Yellow cards': 2,
-        'Red cards': 0,
-        'Penalty goals': 0,
-        'Shots': 35,
-        'Shots on target': 15,
-        'Dribbles attempted': 47,
-        'Successful dribbles': 25,
-        'Times fouled': 18,
-        'Big chances created': 7,
-        'Big chances missed': 6,
-        'Distance covered (km)': 98,
-        'Sprints': 204,
       }),
-      _Player('Kobbie Mainoo', 'Midfielder', '37', {
-        'Goals': 2,
-        'Assists': 2,
-        'Yellow cards': 3,
-        'Red cards': 0,
-        'Penalty goals': 0,
-        'Shots': 16,
-        'Shots on target': 7,
-        'Dribbles attempted': 22,
-        'Successful dribbles': 16,
-        'Times fouled': 14,
-        'Big chances created': 4,
-        'Big chances missed': 2,
-        'Distance covered (km)': 105,
-        'Sprints': 132,
+      _Player('Thomas Partey', 'Midfielder', '5'),
+      _Player('Jordan Ayew', 'Forward', '9'),
+    ],
+    'Nigeria': [
+      _Player('Victor Osimhen', 'Forward', '9', {
+        'Goals': 6,
+        'Assists': 1,
+        'Yellow cards': 1,
       }),
+      _Player('Alex Iwobi', 'Midfielder', '17'),
+      _Player('Ademola Lookman', 'Forward', '7'),
     ],
-    'Arsenal': [
-      _Player('Bukayo Saka', 'Forward', '7'),
-      _Player('Martin Ødegaard', 'Midfielder', '8'),
-      _Player('Declan Rice', 'Midfielder', '41'),
+    'Morocco': [
+      _Player('Achraf Hakimi', 'Defender', '2'),
+      _Player('Brahim Diaz', 'Forward', '10'),
+      _Player('Youssef En-Nesyri', 'Forward', '19'),
     ],
-    'Liverpool': [
-      _Player('Mohamed Salah', 'Forward', '11'),
-      _Player('Virgil van Dijk', 'Defender', '4'),
-      _Player('Alisson Becker', 'Goalkeeper', '1'),
+    'Senegal': [
+      _Player('Sadio Mane', 'Forward', '10'),
+      _Player('Kalidou Koulibaly', 'Defender', '3'),
+      _Player('Nicolas Jackson', 'Forward', '11'),
     ],
-    'Manchester City': [
-      _Player('Erling Haaland', 'Forward', '9'),
-      _Player('Phil Foden', 'Midfielder', '47'),
-      _Player('Rodri', 'Midfielder', '16'),
+    'Egypt': [
+      _Player('Mohamed Salah', 'Forward', '10'),
+      _Player('Omar Marmoush', 'Forward', '7'),
     ],
-    'Real Madrid': [
-      _Player('Jude Bellingham', 'Midfielder', '5'),
-      _Player('Vinícius Júnior', 'Forward', '7'),
-      _Player('Thibaut Courtois', 'Goalkeeper', '1'),
+    'South Africa': [
+      _Player('Ronwen Williams', 'Goalkeeper', '1'),
+      _Player('Percy Tau', 'Forward', '10'),
+      _Player('Lyle Foster', 'Forward', '9'),
     ],
-    'Barcelona': [
-      _Player('Lamine Yamal', 'Forward', '19'),
-      _Player('Pedri', 'Midfielder', '8'),
-      _Player('Robert Lewandowski', 'Forward', '9'),
-    ],
-    'Atlético Madrid': [
-      _Player('Antoine Griezmann', 'Forward', '7'),
-      _Player('Koke', 'Midfielder', '6'),
-    ],
-    'Juventus': [
-      _Player('Dušan Vlahović', 'Forward', '9'),
-      _Player('Kenan Yıldız', 'Forward', '10'),
-    ],
-    'Inter Milan': [
-      _Player('Lautaro Martínez', 'Forward', '10'),
-      _Player('Nicolò Barella', 'Midfielder', '23'),
-    ],
-    'AC Milan': [
-      _Player('Rafael Leão', 'Forward', '10'),
-      _Player('Christian Pulisic', 'Forward', '11'),
-    ],
-    'Bayern Munich': [
-      _Player('Harry Kane', 'Forward', '9'),
-      _Player('Jamal Musiala', 'Midfielder', '42'),
-    ],
-    'Borussia Dortmund': [
-      _Player('Julian Brandt', 'Midfielder', '10'),
-      _Player('Karim Adeyemi', 'Forward', '27'),
+    'Ivory Coast': [
+      _Player('Franck Kessie', 'Midfielder', '8'),
+      _Player('Simon Adingra', 'Forward', '10'),
+      _Player('Sebastien Haller', 'Forward', '22'),
     ],
   };
-
   String _selectedLeague = _leagues.first;
   _Club? _selectedClub;
   String? _selectedSeason;
@@ -188,17 +183,24 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
       });
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7F8),
+      backgroundColor: const Color(0xFFF6F8F6),
       appBar: AppBar(
         title: const Text('Teams & players'),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
+        elevation: 0,
+        foregroundColor: _ink,
+        titleTextStyle: const TextStyle(
+          color: _ink,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
         children: [
           const Text(
-            'Browse by league',
+            'Browse by African region',
             style: TextStyle(
               color: _ink,
               fontSize: 18,
@@ -389,7 +391,7 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
     final currentSeasonStart = DateTime.now().month >= 7
         ? currentYear
         : currentYear - 1;
-    final firstSeason = int.parse(club.foundedYear);
+    final firstSeason = int.parse(club.sampleStartYear);
     return [
       for (var year = currentSeasonStart; year >= firstSeason; year--)
         '$year/${(year + 1).toString().substring(2)}',
@@ -398,10 +400,10 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
 }
 
 class _Club {
-  const _Club(this.name, this.foundedYear, this.badgeLetter, this.color);
+  const _Club(this.name, this.sampleStartYear, this.badgeLetter, this.color);
 
   final String name;
-  final String foundedYear;
+  final String sampleStartYear;
   final String badgeLetter;
   final Color color;
 
@@ -461,7 +463,7 @@ class _ClubCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Color(0xFF172B4D),
+                    color: Color(0xFF19251F),
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
@@ -514,7 +516,7 @@ class _HistoryPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Founded ${club.foundedYear} · season archive',
+                  'National team · sample season archive',
                   style: const TextStyle(color: Colors.white70, fontSize: 10),
                 ),
               ],
@@ -619,7 +621,7 @@ class _PlayerCard extends StatelessWidget {
           child: Text(
             '$rank',
             style: const TextStyle(
-              color: Color(0xFF147D55),
+              color: Color(0xFF176B46),
               fontSize: 12,
               fontWeight: FontWeight.w800,
             ),
@@ -628,14 +630,14 @@ class _PlayerCard extends StatelessWidget {
         title: Text(
           player.name,
           style: const TextStyle(
-            color: Color(0xFF172B4D),
+            color: Color(0xFF19251F),
             fontSize: 13,
             fontWeight: FontWeight.w700,
           ),
         ),
         subtitle: Text(
           '${club.name} · ${player.position}',
-          style: const TextStyle(color: Color(0xFF627D98), fontSize: 11),
+          style: const TextStyle(color: Color(0xFF69766F), fontSize: 11),
         ),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -644,14 +646,14 @@ class _PlayerCard extends StatelessWidget {
             Text(
               '${player.stats[statLabel] ?? '—'}',
               style: const TextStyle(
-                color: Color(0xFF172B4D),
+                color: Color(0xFF19251F),
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
               ),
             ),
             Text(
               statLabel,
-              style: const TextStyle(color: Color(0xFF627D98), fontSize: 9),
+              style: const TextStyle(color: Color(0xFF69766F), fontSize: 9),
             ),
           ],
         ),
@@ -676,13 +678,13 @@ class _HistoricalSeasonNotice extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.history_rounded, color: Color(0xFF147D55)),
+          const Icon(Icons.history_rounded, color: Color(0xFF176B46)),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               'The $season squad archive is not connected yet. Historical players will appear here when verified records are available.',
               style: const TextStyle(
-                color: Color(0xFF627D98),
+                color: Color(0xFF69766F),
                 fontSize: 12,
                 height: 1.4,
               ),
@@ -744,8 +746,10 @@ class _PlayerProfileScreenState extends State<_PlayerProfileScreen>
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF167CB5),
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF19251F),
+        surfaceTintColor: Colors.white,
+        elevation: 0,
         title: const Text('PLAYER'),
       ),
       body: Column(
@@ -753,7 +757,7 @@ class _PlayerProfileScreenState extends State<_PlayerProfileScreen>
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-            color: const Color(0xFF167CB5),
+            color: const Color(0xFF176B46),
             child: Column(
               children: [
                 Row(
@@ -768,7 +772,7 @@ class _PlayerProfileScreenState extends State<_PlayerProfileScreen>
                           child: Text(
                             player.number,
                             style: const TextStyle(
-                              color: Color(0xFF167CB5),
+                              color: Color(0xFF176B46),
                               fontSize: 28,
                               fontWeight: FontWeight.w900,
                             ),
@@ -844,9 +848,9 @@ class _PlayerProfileScreenState extends State<_PlayerProfileScreen>
               controller: _tabController,
               isScrollable: true,
               tabAlignment: TabAlignment.start,
-              labelColor: const Color(0xFF148B4D),
+              labelColor: const Color(0xFF176B46),
               unselectedLabelColor: const Color(0xFF858B91),
-              indicatorColor: const Color(0xFF148B4D),
+              indicatorColor: const Color(0xFF176B46),
               tabs: const [
                 Tab(text: 'News'),
                 Tab(text: 'Stats'),
@@ -1025,14 +1029,14 @@ class _ProfilePlaceholder extends StatelessWidget {
           children: [
             const Icon(
               Icons.insights_rounded,
-              color: Color(0xFF167CB5),
+              color: Color(0xFF176B46),
               size: 38,
             ),
             const SizedBox(height: 10),
             Text(
               title,
               style: const TextStyle(
-                color: Color(0xFF172B4D),
+                color: Color(0xFF19251F),
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
               ),
@@ -1042,7 +1046,7 @@ class _ProfilePlaceholder extends StatelessWidget {
               description,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: Color(0xFF627D98),
+                color: Color(0xFF69766F),
                 fontSize: 12,
                 height: 1.45,
               ),

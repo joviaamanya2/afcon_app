@@ -9,78 +9,66 @@ class ExploreScreen extends StatefulWidget {
 
 class _ExploreScreenState extends State<ExploreScreen>
     with TickerProviderStateMixin {
-  static const _green = Color(0xFF148B4D);
-  static const _dark = Color(0xFF25333D);
-  static const _topTabs = ['Hot', 'Competitions', 'Ranking'];
-  static const _leagues = ['EPL', 'La Liga', 'Champions League', 'UEFA'];
+  static const _green = Color(0xFF176B46);
+  static const _canvas = Color(0xFFF6F8F6);
+  static const _topTabs = ['Popular', 'CAF', 'Rankings'];
+  static const _leagues = [
+    'AFCON',
+    'CAF Champions League',
+    'CAF Confederation Cup',
+    'WAFCON',
+  ];
   static const _regions = [
-    'Hot',
-    'World',
-    'European',
-    'Asian',
-    'African',
-    'Americas',
-    'Oceania',
-    "Women's",
+    'Popular',
+    'CAF competitions',
+    'National teams',
+    'African clubs',
+    'Women',
+    'Youth',
   ];
   static const _competitionGroups = <String, List<String>>{
-    'Hot': [
-      'EPL',
-      'La Liga',
-      'Champions League',
-      'UEFA Nations League',
-      'Serie A',
-      'Bundesliga',
-      'Saudi Pro League',
-      'MLS',
-      'Ligue 1',
-      'Europa League',
+    'Popular': [
       'Africa Cup of Nations',
-    ],
-    'World': [
-      'World Cup',
-      'World Cup Qualifiers',
-      'Club World Cup',
-      'International Friendlies',
-    ],
-    'European': [
-      'Premier League',
-      'La Liga',
-      'Champions League',
-      'Serie A',
-      'Bundesliga',
-      'Ligue 1',
-      'Europa League',
-    ],
-    'Asian': [
-      'Asian Cup',
-      'AFC Champions League',
-      'Saudi Pro League',
-      'J1 League',
-    ],
-    'African': [
-      'Africa Cup of Nations',
-      'AFCON Qualifiers',
+      'African Nations Championship',
       'CAF Champions League',
       'CAF Confederation Cup',
-    ],
-    'Americas': [
-      'Copa América',
-      'MLS',
-      'CONCACAF Gold Cup',
-      'Copa Libertadores',
-    ],
-    'Oceania': ['OFC Nations Cup', 'OFC Champions League'],
-    "Women's": [
-      "Women's World Cup",
       "Women's Africa Cup of Nations",
-      "Women's Champions League",
+    ],
+    'CAF competitions': [
+      'Africa Cup of Nations',
+      'African Nations Championship',
+      'CAF Champions League',
+      'CAF Confederation Cup',
+      'CAF Super Cup',
+      'African Football League',
+    ],
+    'National teams': [
+      'Africa Cup of Nations',
+      'African Nations Championship',
+      'U-23 Africa Cup of Nations',
+      'U-20 Africa Cup of Nations',
+      'U-17 Africa Cup of Nations',
+      'Futsal Africa Cup of Nations',
+      'Beach Soccer Africa Cup of Nations',
+    ],
+    'African clubs': [
+      'CAF Champions League',
+      'CAF Confederation Cup',
+      'CAF Super Cup',
+      'African Football League',
+    ],
+    'Women': ["Women's Africa Cup of Nations", "CAF Women's Champions League"],
+    'Youth': [
+      'U-23 Africa Cup of Nations',
+      'U-20 Africa Cup of Nations',
+      'U-17 Africa Cup of Nations',
+      'African Schools Football Championship',
     ],
   };
 
   late final TabController _topTabController;
   late final TabController _dataTabController;
-  String _selectedLeague = 'EPL';
+  String _selectedLeague = 'AFCON';
   String _selectedSeason = '2026/27';
 
   static const _seasons = [
@@ -123,19 +111,19 @@ class _ExploreScreenState extends State<ExploreScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _dark,
+      backgroundColor: _canvas,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF148B4D),
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF19251F),
         centerTitle: false,
         title: TabBar(
           controller: _topTabController,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
-          indicatorColor: Colors.white,
+          indicatorColor: const Color(0xFF176B46),
           indicatorWeight: 3,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white.withValues(alpha: 0.78),
+          labelColor: const Color(0xFF176B46),
+          unselectedLabelColor: const Color(0xFF69766F),
           tabs: _topTabs.map((tab) => Tab(text: tab)).toList(),
         ),
         bottom: PreferredSize(
@@ -171,17 +159,17 @@ class _ExploreScreenState extends State<ExploreScreen>
         children: [
           Container(
             height: 56,
-            color: _dark,
+            color: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: Row(
               children: [
                 DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _selectedSeason,
-                    dropdownColor: _dark,
-                    iconEnabledColor: Colors.white70,
+                    dropdownColor: Colors.white,
+                    iconEnabledColor: _green,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: Color(0xFF19251F),
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -207,11 +195,11 @@ class _ExploreScreenState extends State<ExploreScreen>
                     isScrollable: true,
                     tabAlignment: TabAlignment.start,
                     indicator: BoxDecoration(
-                      color: const Color(0xFF374650),
-                      borderRadius: BorderRadius.circular(5),
+                      color: const Color(0xFFEAF3ED),
+                      borderRadius: BorderRadius.circular(9),
                     ),
-                    labelColor: Colors.white,
-                    unselectedLabelColor: Colors.white60,
+                    labelColor: _green,
+                    unselectedLabelColor: const Color(0xFF69766F),
                     dividerColor: Colors.transparent,
                     tabs: const [
                       Tab(text: 'Tables'),
@@ -269,7 +257,7 @@ class _LeagueShortcut extends StatelessWidget {
       onPressed: onTap,
       style: TextButton.styleFrom(
         foregroundColor: selected
-            ? const Color(0xFF148B4D)
+            ? const Color(0xFF176B46)
             : const Color(0xFF343A40),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         textStyle: TextStyle(
@@ -299,12 +287,12 @@ class _CompetitionContent extends StatelessWidget {
       children: [
         Container(
           width: double.infinity,
-          color: const Color(0xFF303D46),
+          color: const Color(0xFFEAF3ED),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Text(
             '$league · $season · SAMPLE DATA',
             style: const TextStyle(
-              color: Colors.white,
+              color: Color(0xFF19251F),
               fontSize: 12,
               fontWeight: FontWeight.w700,
             ),
@@ -342,13 +330,13 @@ class _StandingsTable extends StatelessWidget {
   final String season;
 
   static const _rows = [
-    ('1', 'North City', '10', '8', '1', '1', '25'),
-    ('2', 'Harbour FC', '10', '7', '2', '1', '23'),
-    ('3', 'Capital United', '10', '7', '1', '2', '22'),
-    ('4', 'Riverside SC', '10', '6', '2', '2', '20'),
-    ('5', 'Highland Rovers', '10', '5', '3', '2', '18'),
-    ('6', 'Lakeside FC', '10', '5', '1', '4', '16'),
-    ('7', 'Coastal Athletic', '10', '4', '3', '3', '15'),
+    ('1', 'Uganda', '3', '3', '0', '0', '9'),
+    ('2', 'Ghana', '3', '2', '1', '0', '7'),
+    ('3', 'Nigeria', '3', '2', '0', '1', '6'),
+    ('4', 'Morocco', '3', '1', '2', '0', '5'),
+    ('5', 'Senegal', '3', '1', '1', '1', '4'),
+    ('6', 'Egypt', '3', '1', '0', '2', '3'),
+    ('7', 'South Africa', '3', '0', '2', '1', '2'),
   ];
 
   @override
@@ -357,7 +345,7 @@ class _StandingsTable extends StatelessWidget {
       padding: EdgeInsets.zero,
       children: [
         Container(
-          color: const Color(0xFF303D46),
+          color: const Color(0xFFF0F4F1),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
           child: const Row(
             children: [
@@ -365,7 +353,7 @@ class _StandingsTable extends StatelessWidget {
                 flex: 5,
                 child: Text(
                   'TEAM',
-                  style: TextStyle(color: Colors.white70, fontSize: 10),
+                  style: TextStyle(color: Color(0xFF69766F), fontSize: 10),
                 ),
               ),
               _TableHeaderCell(label: 'P'),
@@ -383,7 +371,7 @@ class _StandingsTable extends StatelessWidget {
           child: Text(
             '$league $season standings shown for layout preview only. Not official competition data.',
             style: const TextStyle(
-              color: Colors.white70,
+              color: Color(0xFF69766F),
               fontSize: 10,
               height: 1.4,
             ),
@@ -406,7 +394,7 @@ class _TableHeaderCell extends StatelessWidget {
       child: Text(
         label,
         textAlign: TextAlign.center,
-        style: const TextStyle(color: Colors.white70, fontSize: 9),
+        style: const TextStyle(color: Color(0xFF69766F), fontSize: 9),
       ),
     );
   }
@@ -420,21 +408,26 @@ class _StandingsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final background = highlighted
-        ? const Color(0xFF168F4B)
-        : const Color(0xFF303D46);
-    const textColor = Colors.white;
+    final background = highlighted ? const Color(0xFFEAF3ED) : Colors.white;
+    const textColor = Color(0xFF19251F);
 
     return Container(
-      color: background,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      decoration: BoxDecoration(
+        color: background,
+        border: const Border(bottom: BorderSide(color: Color(0xFFE9EFEB))),
+      ),
       child: Row(
         children: [
           SizedBox(
             width: 20,
             child: Text(
               values.$1,
-              style: const TextStyle(color: textColor, fontSize: 12),
+              style: TextStyle(
+                color: highlighted ? const Color(0xFF176B46) : textColor,
+                fontSize: 12,
+                fontWeight: highlighted ? FontWeight.w800 : FontWeight.w500,
+              ),
             ),
           ),
           const SizedBox(width: 5),
@@ -444,8 +437,8 @@ class _StandingsRow extends StatelessWidget {
               values.$2,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: textColor,
+              style: TextStyle(
+                color: highlighted ? const Color(0xFF176B46) : textColor,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -488,14 +481,14 @@ class _DataPlaceholder extends StatelessWidget {
           children: [
             const Icon(
               Icons.insights_rounded,
-              color: Color(0xFF9EB4A6),
+              color: Color(0xFF176B46),
               size: 38,
             ),
             const SizedBox(height: 10),
             Text(
               title,
               style: const TextStyle(
-                color: Colors.white,
+                color: Color(0xFF19251F),
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
@@ -504,7 +497,7 @@ class _DataPlaceholder extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              style: const TextStyle(color: Color(0xFF69766F), fontSize: 12),
             ),
           ],
         ),
@@ -534,14 +527,14 @@ class _DiscoveryContent extends StatelessWidget {
           children: [
             const Icon(
               Icons.emoji_events_outlined,
-              color: Color(0xFFF3B63F),
+              color: Color(0xFFD8A441),
               size: 42,
             ),
             const SizedBox(height: 12),
             Text(
               title,
               style: const TextStyle(
-                color: Colors.white,
+                color: Color(0xFF19251F),
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
               ),
@@ -551,7 +544,7 @@ class _DiscoveryContent extends StatelessWidget {
               description,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: Colors.white70,
+                color: Color(0xFF69766F),
                 fontSize: 13,
                 height: 1.5,
               ),
@@ -562,8 +555,8 @@ class _DiscoveryContent extends StatelessWidget {
               icon: const Icon(Icons.grid_view_rounded),
               label: const Text('Browse all competitions'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white54),
+                foregroundColor: const Color(0xFF176B46),
+                side: const BorderSide(color: Color(0xFFB7D4C4)),
               ),
             ),
           ],
@@ -596,7 +589,7 @@ class _RegionButton extends StatelessWidget {
             label,
             style: TextStyle(
               color: selected
-                  ? const Color(0xFF148B4D)
+                  ? const Color(0xFF176B46)
                   : const Color(0xFF343A40),
               fontSize: 12,
               fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
@@ -623,7 +616,7 @@ class _CompetitionBrowserScreen extends StatefulWidget {
 }
 
 class _CompetitionBrowserScreenState extends State<_CompetitionBrowserScreen> {
-  String _selectedRegion = 'Hot';
+  String _selectedRegion = 'Popular';
 
   @override
   Widget build(BuildContext context) {
@@ -633,8 +626,10 @@ class _CompetitionBrowserScreenState extends State<_CompetitionBrowserScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF148B4D),
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF19251F),
+        surfaceTintColor: Colors.white,
+        elevation: 0,
         title: const Text(
           'Explore competitions',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
@@ -665,7 +660,7 @@ class _CompetitionBrowserScreenState extends State<_CompetitionBrowserScreen> {
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
               children: [
                 Text(
-                  _selectedRegion == 'Hot'
+                  _selectedRegion == 'Popular'
                       ? 'Popular competitions'
                       : '$_selectedRegion competitions',
                   style: const TextStyle(

@@ -1,7 +1,9 @@
 import 'package:afcon_app/main.dart';
+import 'package:afcon_app/screens/afcon_feature_screen.dart';
 import 'package:afcon_app/screens/explore_screen.dart';
 import 'package:afcon_app/screens/matches_screen.dart';
 import 'package:afcon_app/screens/teams_players_screen.dart';
+import 'package:afcon_app/screens/updates_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -23,7 +25,6 @@ void main() {
       ),
       findsNothing,
     );
-
     await tester.tap(find.text('Matches'));
     await tester.pumpAndSettle();
 
@@ -40,11 +41,33 @@ void main() {
     expect(find.text('Arsenal'), findsOneWidget);
   });
 
+  testWidgets('home hero transitions between bundled AFCON images', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const AfconApp());
+
+    expect(find.byKey(const Key('home-hero-image-carousel')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('assets/images/main.webp')),
+      findsOneWidget,
+    );
+
+    final secondIndicator = find.byKey(const Key('home-hero-indicator-1'));
+    await tester.ensureVisible(secondIndicator);
+    await tester.tap(secondIndicator);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('assets/images/cup.png')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('match tabs filter the sample match list', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: MatchesScreen()));
 
     final matchTabs = tester.widget<TabBar>(find.byType(TabBar).first);
-    expect(matchTabs.labelColor, Colors.white);
+    expect(matchTabs.labelColor, const Color(0xFF176B46));
     expect(matchTabs.indicator, isA<BoxDecoration>());
 
     expect(find.text('Manchester United'), findsOneWidget);
@@ -222,7 +245,7 @@ void main() {
     await tester.tap(find.text('Updates'));
     await tester.pumpAndSettle();
 
-    expect(find.text('NEWS'), findsOneWidget);
+    expect(find.text('News'), findsOneWidget);
     expect(find.text('Headline'), findsOneWidget);
     expect(find.text('AFCON'), findsWidgets);
     expect(find.text('Trending'), findsWidgets);
@@ -236,6 +259,81 @@ void main() {
       find.text('News and activities from host cities and regions'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('fans can comment on an individual news article', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
+
+    await tester.tap(
+      find.text('Team and player stories from across the tournament'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('AFCON FAN'), findsOneWidget);
+    expect(find.text('Match Report'), findsOneWidget);
+    expect(find.text('Add a comment'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const Key('article-comment-input')));
+    await tester.enterText(
+      find.byKey(const Key('article-comment-input')),
+      'Great update!',
+    );
+    await tester.tap(find.byKey(const Key('post-article-comment')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Comments (1)'), findsOneWidget);
+    expect(find.text('Great update!'), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('1'), findsOneWidget);
+  });
+
+  testWidgets('media screen shows match-style highlights and playback', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: AfconFeatureScreen(feature: 'Media')),
+    );
+
+    expect(find.text('AFCON Match Center'), findsOneWidget);
+    expect(find.text('Match Report'), findsOneWidget);
+    expect(find.text('Match Moments'), findsOneWidget);
+    expect(find.text('Highlights & Playback'), findsOneWidget);
+    expect(find.text('Opening moments'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const Key('media-playback-card')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('media-playback-card')));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('Official video playback will be available'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('community posts can include image or video attachments', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: AfconFeatureScreen(feature: 'Community')),
+    );
+
+    await tester.tap(find.text('Create post'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('community-add-image')), findsOneWidget);
+    expect(find.byKey(const Key('community-add-video')), findsOneWidget);
+    expect(find.text('Share a thought, photo, or video with the fans.'), findsOneWidget);
+
+    await tester.enterText(
+      find.byType(TextField).last,
+      'Matchday memories from the stands!',
+    );
+    await tester.tap(find.byKey(const Key('community-submit-post')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Matchday memories from the stands!'), findsOneWidget);
   });
 
   testWidgets('explore has competition tabs and more region selector', (
