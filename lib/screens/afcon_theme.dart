@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 
 /// Shared design tokens and base components for the AFCON editorial UI.
 class Pitch {
-  static const turf = Color(0xFF176B46);
-  static const turfDeep = Color(0xFF104A34);
-  static const gold = Color(0xFFD8A441);
+  static const cafMaroon = Color(0xFF800000);
+  static const cafMaroonDeep = Color(0xFF5C0000);
   static const live = Color(0xFFD94141);
-  static const ink = Color(0xFF19251F);
-  static const muted = Color(0xFF69766F);
+  static const ink = Color(0xFF1E1E1E);
+  static const muted = Color(0xFF666666);
   static const line = Color(0xFFE6EBE7);
-  static const canvas = Color(0xFFF6F8F6);
+  static const canvas = Color(0xFFF7F7F7);
 
   /// Fixed-width digits so scores and times line up in columns.
   static const tabular = [FontFeature.tabularFigures()];
@@ -17,9 +16,9 @@ class Pitch {
 
 ThemeData buildAfconTheme() {
   final scheme = ColorScheme.fromSeed(
-    seedColor: Pitch.turf,
-    primary: Pitch.turf,
-    secondary: Pitch.gold,
+    seedColor: Pitch.cafMaroon,
+    primary: Pitch.cafMaroon,
+    secondary: Pitch.cafMaroon,
     surface: Colors.white,
   );
   return ThemeData(
@@ -55,12 +54,12 @@ ThemeData buildAfconTheme() {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Pitch.turf, width: 1.5),
+        borderSide: const BorderSide(color: Pitch.cafMaroon, width: 1.5),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: Pitch.turf,
+        backgroundColor: Pitch.cafMaroon,
         foregroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         textStyle: const TextStyle(fontWeight: FontWeight.w700),
@@ -68,7 +67,7 @@ ThemeData buildAfconTheme() {
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: Colors.white,
-      indicatorColor: Pitch.turf.withValues(alpha: 0.1),
+      indicatorColor: Pitch.cafMaroon.withValues(alpha: 0.1),
       height: 68,
       elevation: 0,
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
@@ -79,7 +78,7 @@ ThemeData buildAfconTheme() {
               ? FontWeight.w800
               : FontWeight.w600,
           color: states.contains(WidgetState.selected)
-              ? Pitch.turf
+              ? Pitch.cafMaroon
               : Pitch.muted,
         ),
       ),
@@ -88,7 +87,7 @@ ThemeData buildAfconTheme() {
   );
 }
 
-/// Turf gradient with faint pitch markings, for use as AppBar.flexibleSpace.
+/// CAF maroon gradient with subtle football pitch markings.
 class PitchBackdrop extends StatelessWidget {
   const PitchBackdrop({super.key});
 
@@ -96,7 +95,7 @@ class PitchBackdrop extends StatelessWidget {
   Widget build(BuildContext context) => const DecoratedBox(
     decoration: BoxDecoration(
       gradient: LinearGradient(
-        colors: [Pitch.turfDeep, Pitch.turf],
+        colors: [Pitch.cafMaroonDeep, Pitch.cafMaroon],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ),

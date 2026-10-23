@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
 
+import '../services/afcon_api.dart';
+import 'matches_screen.dart';
+import 'pamoja_tournament_card.dart';
+
 class TeamsPlayersScreen extends StatefulWidget {
-  const TeamsPlayersScreen({super.key});
+  const TeamsPlayersScreen({super.key, this.initialTeam});
+
+  final String? initialTeam;
 
   @override
   State<TeamsPlayersScreen> createState() => _TeamsPlayersScreenState();
 }
 
 class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
-  static const _green = Color(0xFF176B46);
-  static const _ink = Color(0xFF19251F);
-  static const _muted = Color(0xFF69766F);
+  static const _brandMaroon = Color(0xFF800000);
+  static const _ink = Color(0xFF1E1E1E);
+  static const _muted = Color(0xFF666666);
   static const _leagues = [
     'East Africa',
     'West Africa',
@@ -142,6 +148,91 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
   String? _selectedSeason;
   String _selectedPlayerStat = 'Goals';
   bool _descendingPlayerStats = true;
+  final _playersSectionKey = GlobalKey();
+  final _api = AfconApi();
+  List<Map<String, dynamic>> _backendTeams = [];
+  List<Map<String, dynamic>> _backendPlayers = [];
+
+  Future<void> _loadBackendTeams() async {
+    try {
+      final teams = await _api.teams();
+      if (!mounted) return;
+      setState(() => _backendTeams = teams);
+      if (teams.isNotEmpty) {
+        final regions = teams.map((team) {
+          final region = '${team['region'] ?? ''}'.trim();
+          return region.isEmpty ? 'Unassigned' : region;
+        }).toSet();
+        if (regions.isNotEmpty && !regions.contains(_selectedLeague)) {
+          setState(() => _selectedLeague = regions.first);
+        }
+        final intendedTeam = widget.initialTeam ?? _selectedClub?.name;
+        final selected = teams
+            .where((team) => '${team['name']}' == intendedTeam)
+            .toList();
+        final firstTeam = selected.isNotEmpty ? selected.first : teams.first;
+        final teamRegion = '${firstTeam['region'] ?? ''}'.trim();
+        final teamName = '${firstTeam['name'] ?? 'Team'}';
+        final teamId = '${firstTeam['id'] ?? ''}';
+        if (intendedTeam != null && selected.isNotEmpty) {
+          setState(() {
+            _selectedLeague = teamRegion.isEmpty ? 'Unassigned' : teamRegion;
+            _selectedClub = _Club(
+              teamName,
+              DateTime.now().year.toString(),
+              teamName.substring(0, 1).toUpperCase(),
+              _brandMaroon,
+              id: teamId,
+            );
+          });
+        }
+        if (teamId.isNotEmpty) _loadBackendPlayers(teamId);
+      }
+    } catch (_) {
+      // Preview teams remain available when the API is offline.
+    }
+  }
+
+  Future<void> _loadBackendPlayers(String teamId) async {
+    try {
+      final players = await _api.players(teamId: teamId);
+      if (mounted) setState(() => _backendPlayers = players);
+    } catch (_) {
+      if (mounted) setState(() => _backendPlayers = []);
+    }
+  }
+
+  @override
+  void dispose() {
+    _api.close();
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBackendTeams();
+    final team = widget.initialTeam;
+    if (team == null) return;
+    for (final league in _leagues) {
+      final matchingTeam = _clubs[league]!.where((club) => club.name == team);
+      if (matchingTeam.isNotEmpty) {
+        _selectedLeague = league;
+        _selectedClub = matchingTeam.first;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final targetContext = _playersSectionKey.currentContext;
+          if (targetContext != null) {
+            Scrollable.ensureVisible(
+              targetContext,
+              duration: const Duration(milliseconds: 450),
+              alignment: 0.08,
+            );
+          }
+        });
+        return;
+      }
+    }
+  }
 
   static const _playerStats = [
     'Goals',
@@ -160,17 +251,77 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
     'Sprints',
   ];
 
+  String _playerStatLabel(String key) {
+    final label = key.replaceAll('_', ' ');
+    return label.isEmpty
+        ? label
+        : '${label[0].toUpperCase()}${label.substring(1)}';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final clubs = _clubs[_selectedLeague]!;
-    final selectedClub = _selectedClub != null && clubs.contains(_selectedClub)
-        ? _selectedClub!
+    final backendRegions = _backendTeams.map((team) {
+      final region = '${team['region'] ?? ''}'.trim();
+      return region.isEmpty ? 'Unassigned' : region;
+    }).toSet();
+    final leagues = _backendTeams.isEmpty ? _leagues : backendRegions.toList();
+    final activeLeague = leagues.contains(_selectedLeague)
+        ? _selectedLeague
+        : leagues.first;
+    final backendRegionTeams = _backendTeams.where((team) {
+      final region = '${team['region'] ?? ''}'.trim();
+      return (region.isEmpty ? 'Unassigned' : region) == activeLeague;
+    }).toList();
+    final clubs = backendRegionTeams.isNotEmpty
+        ? backendRegionTeams
+              .map(
+                (team) => _Club(
+                  '${team['name'] ?? 'Team'}',
+                  DateTime.now().year.toString(),
+                  (('${team['short_name'] ?? team['name'] ?? 'T'}')
+                              .trim()
+                              .isEmpty
+                          ? 'T'
+                          : '${team['short_name'] ?? team['name'] ?? 'T'}'
+                                .trim()
+                                .substring(0, 1))
+                      .toUpperCase(),
+                  _brandMaroon,
+                  id: '${team['id'] ?? ''}',
+                ),
+              )
+              .toList()
+        : _clubs[activeLeague] ?? _clubs[_leagues.first]!;
+    final matchingClubs = clubs.where(
+      (club) => club.name == _selectedClub?.name,
+    );
+    final selectedClub = matchingClubs.isNotEmpty
+        ? matchingClubs.first
         : clubs.first;
     final seasons = _seasonsFor(selectedClub);
     final selectedSeason = seasons.contains(_selectedSeason)
         ? _selectedSeason!
         : seasons.first;
-    final players = _samplePlayers[selectedClub.name] ?? const <_Player>[];
+    final players = selectedClub.id != null
+        ? _backendPlayers.map((record) {
+            final stats = record['stats'] is Map
+                ? (record['stats'] as Map).map(
+                    (key, value) => MapEntry(
+                      _playerStatLabel('$key'),
+                      value is num
+                          ? value.toInt()
+                          : int.tryParse('$value') ?? 0,
+                    ),
+                  )
+                : <String, int>{};
+            return _Player(
+              '${record['name'] ?? 'Player'}',
+              '${record['position'] ?? 'Player'}',
+              '${record['shirt_number'] ?? '—'}',
+              stats,
+            );
+          }).toList()
+        : _samplePlayers[selectedClub.name] ?? const <_Player>[];
     final rankedPlayers = players.toList()
       ..sort((first, second) {
         final firstValue = first.stats[_selectedPlayerStat];
@@ -183,7 +334,7 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
       });
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8F6),
+      backgroundColor: const Color(0xFFF7F7F7),
       appBar: AppBar(
         title: const Text('Teams & players'),
         backgroundColor: Colors.white,
@@ -199,6 +350,12 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
         children: [
+          PamojaTournamentCard(
+            onOpenMatches: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const MatchesScreen()),
+            ),
+          ),
+          const SizedBox(height: 20),
           const Text(
             'Browse by African region',
             style: TextStyle(
@@ -212,16 +369,16 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
             height: 42,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: _leagues.length,
+              itemCount: leagues.length,
               separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
-                final league = _leagues[index];
+                final league = leagues[index];
                 final selected = league == _selectedLeague;
                 return ChoiceChip(
                   label: Text(league),
                   selected: selected,
                   showCheckmark: false,
-                  selectedColor: _green,
+                  selectedColor: _brandMaroon,
                   backgroundColor: Colors.white,
                   labelStyle: TextStyle(
                     color: selected ? Colors.white : _ink,
@@ -259,10 +416,14 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
                 return _ClubCard(
                   club: club,
                   selected: selected,
-                  onTap: () => setState(() {
-                    _selectedClub = club;
-                    _selectedSeason = null;
-                  }),
+                  onTap: () {
+                    setState(() {
+                      _selectedClub = club;
+                      _selectedSeason = null;
+                      _backendPlayers = [];
+                    });
+                    if (club.id != null) _loadBackendPlayers(club.id!);
+                  },
                 );
               },
             ),
@@ -278,6 +439,7 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
           ),
           const SizedBox(height: 18),
           Row(
+            key: _playersSectionKey,
             children: [
               Expanded(
                 child: Text(
@@ -352,7 +514,7 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
                   _descendingPlayerStats
                       ? Icons.south_rounded
                       : Icons.north_rounded,
-                  color: _green,
+                  color: _brandMaroon,
                 ),
               ),
             ],
@@ -400,12 +562,19 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
 }
 
 class _Club {
-  const _Club(this.name, this.sampleStartYear, this.badgeLetter, this.color);
+  const _Club(
+    this.name,
+    this.sampleStartYear,
+    this.badgeLetter,
+    this.color, {
+    this.id,
+  });
 
   final String name;
   final String sampleStartYear;
   final String badgeLetter;
   final Color color;
+  final String? id;
 
   @override
   bool operator ==(Object other) => other is _Club && other.name == name;
@@ -463,7 +632,7 @@ class _ClubCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Color(0xFF19251F),
+                    color: Color(0xFF1E1E1E),
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
@@ -621,7 +790,7 @@ class _PlayerCard extends StatelessWidget {
           child: Text(
             '$rank',
             style: const TextStyle(
-              color: Color(0xFF176B46),
+              color: Color(0xFF800000),
               fontSize: 12,
               fontWeight: FontWeight.w800,
             ),
@@ -630,14 +799,14 @@ class _PlayerCard extends StatelessWidget {
         title: Text(
           player.name,
           style: const TextStyle(
-            color: Color(0xFF19251F),
+            color: Color(0xFF1E1E1E),
             fontSize: 13,
             fontWeight: FontWeight.w700,
           ),
         ),
         subtitle: Text(
           '${club.name} · ${player.position}',
-          style: const TextStyle(color: Color(0xFF69766F), fontSize: 11),
+          style: const TextStyle(color: Color(0xFF666666), fontSize: 11),
         ),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -646,14 +815,14 @@ class _PlayerCard extends StatelessWidget {
             Text(
               '${player.stats[statLabel] ?? '—'}',
               style: const TextStyle(
-                color: Color(0xFF19251F),
+                color: Color(0xFF1E1E1E),
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
               ),
             ),
             Text(
               statLabel,
-              style: const TextStyle(color: Color(0xFF69766F), fontSize: 9),
+              style: const TextStyle(color: Color(0xFF666666), fontSize: 9),
             ),
           ],
         ),
@@ -678,13 +847,13 @@ class _HistoricalSeasonNotice extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.history_rounded, color: Color(0xFF176B46)),
+          const Icon(Icons.history_rounded, color: Color(0xFF800000)),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               'The $season squad archive is not connected yet. Historical players will appear here when verified records are available.',
               style: const TextStyle(
-                color: Color(0xFF69766F),
+                color: Color(0xFF666666),
                 fontSize: 12,
                 height: 1.4,
               ),
@@ -747,7 +916,7 @@ class _PlayerProfileScreenState extends State<_PlayerProfileScreen>
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF19251F),
+        foregroundColor: const Color(0xFF1E1E1E),
         surfaceTintColor: Colors.white,
         elevation: 0,
         title: const Text('PLAYER'),
@@ -757,7 +926,7 @@ class _PlayerProfileScreenState extends State<_PlayerProfileScreen>
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-            color: const Color(0xFF176B46),
+            color: const Color(0xFF800000),
             child: Column(
               children: [
                 Row(
@@ -772,7 +941,7 @@ class _PlayerProfileScreenState extends State<_PlayerProfileScreen>
                           child: Text(
                             player.number,
                             style: const TextStyle(
-                              color: Color(0xFF176B46),
+                              color: Color(0xFF800000),
                               fontSize: 28,
                               fontWeight: FontWeight.w900,
                             ),
@@ -848,9 +1017,9 @@ class _PlayerProfileScreenState extends State<_PlayerProfileScreen>
               controller: _tabController,
               isScrollable: true,
               tabAlignment: TabAlignment.start,
-              labelColor: const Color(0xFF176B46),
+              labelColor: const Color(0xFF800000),
               unselectedLabelColor: const Color(0xFF858B91),
-              indicatorColor: const Color(0xFF176B46),
+              indicatorColor: const Color(0xFF800000),
               tabs: const [
                 Tab(text: 'News'),
                 Tab(text: 'Stats'),
@@ -1029,14 +1198,14 @@ class _ProfilePlaceholder extends StatelessWidget {
           children: [
             const Icon(
               Icons.insights_rounded,
-              color: Color(0xFF176B46),
+              color: Color(0xFF800000),
               size: 38,
             ),
             const SizedBox(height: 10),
             Text(
               title,
               style: const TextStyle(
-                color: Color(0xFF19251F),
+                color: Color(0xFF1E1E1E),
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
               ),
@@ -1046,7 +1215,7 @@ class _ProfilePlaceholder extends StatelessWidget {
               description,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: Color(0xFF69766F),
+                color: Color(0xFF666666),
                 fontSize: 12,
                 height: 1.45,
               ),

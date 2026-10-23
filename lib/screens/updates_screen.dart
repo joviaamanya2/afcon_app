@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 
-const _updatesGreen = Color(0xFF176B46);
-const _updatesInk = Color(0xFF19251F);
-const _updatesMuted = Color(0xFF69766F);
+import '../services/afcon_api.dart';
+
+const _updatesMaroon = Color(0xFF800000);
+const _updatesInk = Color(0xFF1E1E1E);
+const _updatesMuted = Color(0xFF666666);
 
 class UpdatesScreen extends StatefulWidget {
-  const UpdatesScreen({super.key});
+  const UpdatesScreen({super.key, this.showBackButton = true});
+
+  final bool showBackButton;
 
   @override
   State<UpdatesScreen> createState() => _UpdatesScreenState();
@@ -36,6 +40,7 @@ class _UpdatesScreenState extends State<UpdatesScreen>
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        automaticallyImplyLeading: widget.showBackButton,
         backgroundColor: Colors.white,
         foregroundColor: _updatesInk,
         surfaceTintColor: Colors.white,
@@ -44,11 +49,13 @@ class _UpdatesScreenState extends State<UpdatesScreen>
           'News',
           style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
         ),
-        leading: IconButton(
-          tooltip: 'Back',
-          onPressed: () => Navigator.of(context).maybePop(),
-          icon: const Icon(Icons.arrow_back_rounded),
-        ),
+        leading: widget.showBackButton
+            ? IconButton(
+                tooltip: 'Back',
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(Icons.arrow_back_rounded),
+              )
+            : null,
         actions: [
           IconButton(
             tooltip: 'Search updates',
@@ -64,9 +71,9 @@ class _UpdatesScreenState extends State<UpdatesScreen>
           controller: _tabController,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
-          labelColor: _updatesGreen,
+          labelColor: _updatesMaroon,
           unselectedLabelColor: _updatesMuted,
-          indicatorColor: _updatesGreen,
+          indicatorColor: _updatesMaroon,
           indicatorWeight: 2,
           labelStyle: const TextStyle(
             fontSize: 14,
@@ -99,84 +106,68 @@ class _UpdatesFeed extends StatefulWidget {
 
 class _UpdatesFeedState extends State<_UpdatesFeed> {
   bool _showAll = false;
+  final _api = AfconApi();
+  List<Map<String, dynamic>> _backendArticles = [];
+  bool _articleLoadFailed = false;
 
-  static const _stories = [
-    _Story(
-      title: 'The latest AFCON headlines, all in one place',
-      category: 'Headline',
-      icon: Icons.newspaper_rounded,
-      colors: [Color(0xFF157A50), Color(0xFF1E4771)],
-    ),
-    _Story(
-      title: 'Team and player stories from across the tournament',
-      category: 'AFCON',
-      icon: Icons.groups_rounded,
-      colors: [Color(0xFFB27822), Color(0xFF8C3E3B)],
-    ),
-    _Story(
-      title: 'Stories fans are following today',
-      category: 'Trending',
-      icon: Icons.local_fire_department_rounded,
-      colors: [Color(0xFFE07C32), Color(0xFFB84038)],
-    ),
-    _Story(
-      title: 'News and activities from host cities and regions',
-      category: 'Local',
-      icon: Icons.location_city_rounded,
-      colors: [Color(0xFF328D75), Color(0xFF285880)],
-    ),
-    _Story(
-      title: 'Announcements from official AFCON channels',
-      category: 'Official',
-      icon: Icons.verified_rounded,
-      colors: [Color(0xFF345B9A), Color(0xFF563F83)],
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadArticles();
+  }
+
+  Future<void> _loadArticles() async {
+    try {
+      final category = widget.category == 'Headline' ? null : widget.category;
+      final articles = await _api.news(category: category);
+      if (mounted) setState(() => _backendArticles = articles);
+    } catch (_) {
+      if (mounted) setState(() => _articleLoadFailed = true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _UpdatesFeed oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.category != widget.category) {
+      _backendArticles = [];
+      _articleLoadFailed = false;
+      _loadArticles();
+    }
+  }
+
+  @override
+  void dispose() {
+    _api.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final templates = widget.category == 'Headline'
-        ? _stories.where((story) => story.category != 'Headline').toList()
-        : _stories.where((story) => story.category == widget.category).toList();
-    const extraHeadlines = {
-      'AFCON': [
-        'Players to watch as the tournament action continues',
-        'National teams build momentum for upcoming games',
-        'A closer look at the teams representing the continent',
-      ],
-      'Trending': [
-        'African football stories fans are talking about',
-        'The latest conversations from across African football',
-        'Supporters pick their standout moments so far',
-      ],
-      'Local': [
-        'Fans bring colour and energy to match day',
-        'Local businesses prepare for visiting supporters',
-        'Communities come together to celebrate the tournament',
-      ],
-      'Official': [
-        'Tournament organisers share a new fan update',
-        'Match day information from official AFCON channels',
-        'Important tournament notices for fans',
-      ],
-    };
-    final stories = <_Story>[];
-    for (var storyIndex = 0; storyIndex < 4; storyIndex++) {
-      for (final template in templates) {
-        if (storyIndex == 0) {
-          stories.add(template);
-        } else {
-          stories.add(
-            _Story(
-              title: extraHeadlines[template.category]![storyIndex - 1],
-              category: template.category,
-              icon: template.icon,
-              colors: template.colors,
-            ),
-          );
-        }
-      }
-    }
+    final backendStories = _backendArticles
+        .map(
+          (article) => _Story(
+            title: '${article['title'] ?? 'AFCON update'}',
+            category: '${article['category'] ?? 'AFCON'}',
+            icon: Icons.newspaper_rounded,
+            colors: const [Color(0xFF157A50), Color(0xFF1E4771)],
+            summary: '${article['summary'] ?? ''}',
+            body: '${article['body'] ?? ''}',
+            imageUrl: article['image_url']?.toString(),
+            source: article['source']?.toString(),
+            publishedAt: article['published_at']?.toString(),
+          ),
+        )
+        .toList();
+    final backendTitles = backendStories
+        .map((story) => story.title.toLowerCase().trim())
+        .toSet();
+    final curatedStories = _storiesForCategory(widget.category)
+        .where((story) => !backendTitles.contains(story.title.toLowerCase()))
+        .toList();
+    // CAF's locally bundled stories keep the News screen useful before the
+    // admin dashboard has published records or while the API is offline.
+    final stories = [...backendStories, ...curatedStories];
     final visibleStories = _showAll ? stories : stories.take(3).toList();
 
     return ListView(
@@ -211,8 +202,42 @@ class _UpdatesFeedState extends State<_UpdatesFeed> {
         ),
         const SizedBox(height: 12),
         const Divider(height: 1, color: Color(0xFFE9ECEF)),
-        for (final story in visibleStories)
-          _StoryTile(story: story, commentStore: widget.commentStore),
+        if (visibleStories.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 45, horizontal: 20),
+            child: Column(
+              children: [
+                Icon(
+                  _articleLoadFailed
+                      ? Icons.cloud_off_rounded
+                      : Icons.newspaper_rounded,
+                  color: _updatesMaroon,
+                  size: 34,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _articleLoadFailed
+                      ? 'News service unavailable'
+                      : 'No published stories yet',
+                  style: const TextStyle(
+                    color: _updatesInk,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  _articleLoadFailed
+                      ? 'Check the backend connection and try again.'
+                      : 'Published articles added in the dashboard will appear here.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: _updatesMuted, fontSize: 12),
+                ),
+              ],
+            ),
+          )
+        else
+          for (final story in visibleStories)
+            _StoryTile(story: story, commentStore: widget.commentStore),
         if (stories.length > 3)
           Padding(
             padding: const EdgeInsets.only(top: 14),
@@ -227,7 +252,7 @@ class _UpdatesFeedState extends State<_UpdatesFeed> {
                 _showAll ? 'Show less' : 'More ${widget.category} stories',
               ),
               style: OutlinedButton.styleFrom(
-                foregroundColor: _updatesGreen,
+                foregroundColor: _updatesMaroon,
                 side: const BorderSide(color: Color(0xFFD7E7DD)),
                 padding: const EdgeInsets.symmetric(vertical: 13),
               ),
@@ -244,14 +269,88 @@ class _Story {
     required this.category,
     required this.icon,
     required this.colors,
+    this.summary = '',
+    this.body = '',
+    this.imageUrl,
+    this.imageAsset,
+    this.source,
+    this.publishedAt,
   });
 
   final String title;
   final String category;
   final IconData icon;
   final List<Color> colors;
+  final String summary;
+  final String body;
+  final String? imageUrl;
+  final String? imageAsset;
+  final String? source;
+  final String? publishedAt;
 
   String get id => '$category:$title';
+}
+
+const _cafStaticStories = <_Story>[
+  _Story(
+    title: 'Benin hold off Mauritania as Mali, Côte d’Ivoire collect wins',
+    category: 'AFCON',
+    icon: Icons.sports_soccer_rounded,
+    colors: [Color(0xFF157A50), Color(0xFF1E4771)],
+    summary:
+        'Benin beat Mauritania 2–1, Mali edged Liberia 1–0 and Côte d’Ivoire scored twice late to defeat Somalia. Congo and Cameroon shared a 1–1 draw in the AFCON 2027 qualifiers.',
+    body:
+        'Benin held on for a 2–1 win after a late Mauritanian penalty made the closing stages tense. Mali found the only goal against Liberia in the 79th minute, while Côte d’Ivoire broke Somalia’s resistance with goals in the 89th minute and stoppage time. Congo and Cameroon drew 1–1.',
+    imageAsset:
+        'assets/images/new images/news images/b26i3fr0265.webp',
+    source: 'CAF Online',
+    publishedAt: '29 Sep 2026',
+  ),
+  _Story(
+    title: '10 young players to watch in the AFCON PAMOJA 2027 qualifiers',
+    category: 'AFCON',
+    icon: Icons.groups_rounded,
+    colors: [Color(0xFF157A50), Color(0xFF1E4771)],
+    summary:
+        'CAF highlighted emerging talent ahead of the qualifying campaign, including Ghana midfielder Caleb Yirenkyi, who joined Coventry City in August 2026.',
+    body:
+        'The AFCON PAMOJA 2027 group qualifiers bring 48 countries into the race for a place at the finals. CAF’s players to watch include young internationals from across the continent. Ghana’s Caleb Yirenkyi, a versatile 20-year-old midfielder, was named Danish Superliga Young Player of the Year for 2025/26 before moving to Coventry City.',
+    imageAsset:
+        'assets/images/new images/news images/caleb-yirenkyi.webp',
+    source: 'CAF Online',
+    publishedAt: '23 Sep 2026',
+  ),
+  _Story(
+    title: 'Morocco hold Brazil as Atlas Lions begin World Cup journey',
+    category: 'World Cup',
+    icon: Icons.public_rounded,
+    colors: [Color(0xFF157A50), Color(0xFF1E4771)],
+    summary:
+        'Morocco opened their 2026 FIFA World Cup campaign with a 1–1 draw against Brazil. Ismael Saibari scored for the Atlas Lions before Brazil equalised.',
+    body:
+        'Ismael Saibari put Morocco ahead in the 21st minute after a through ball from Brahim Diaz. Brazil responded through Vinicius Junior eleven minutes later. Both sides had chances after the break, but the match finished 1–1 in Group C.',
+    imageAsset:
+        'assets/images/new images/news images/morocco-s-midfielder-ismael-saibari-scores-goal-against-brazil.webp',
+    source: 'CAF Online',
+    publishedAt: '14 Jun 2026',
+  ),
+];
+
+List<_Story> _storiesForCategory(String category) {
+  switch (category) {
+    case 'AFCON':
+      return _cafStaticStories
+          .where((story) => story.category == 'AFCON')
+          .toList();
+    case 'Local':
+      // No locally sourced Uganda story is bundled with these assets yet.
+      return const [];
+    case 'Headline':
+    case 'Trending':
+    case 'Official':
+    default:
+      return _cafStaticStories;
+  }
 }
 
 class _ArticleComment {
@@ -318,7 +417,24 @@ class _StoryTile extends StatelessWidget {
                 ),
                 borderRadius: BorderRadius.circular(5),
               ),
-              child: Icon(story.icon, color: Colors.white, size: 38),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(5),
+                child: story.imageAsset != null
+                    ? Image.asset(
+                        story.imageAsset!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) =>
+                            Icon(story.icon, color: Colors.white, size: 38),
+                      )
+                    : story.imageUrl != null && story.imageUrl!.isNotEmpty
+                    ? Image.network(
+                        story.imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) =>
+                            Icon(story.icon, color: Colors.white, size: 38),
+                      )
+                    : Icon(story.icon, color: Colors.white, size: 38),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -345,7 +461,7 @@ class _StoryTile extends StatelessWidget {
                         Text(
                           story.category.toUpperCase(),
                           style: const TextStyle(
-                            color: _updatesGreen,
+                            color: _updatesMaroon,
                             fontSize: 9,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 0.5,
@@ -358,14 +474,14 @@ class _StoryTile extends StatelessWidget {
                             children: [
                               const Icon(
                                 Icons.chat_bubble_outline_rounded,
-                                color: _updatesGreen,
+                                color: _updatesMaroon,
                                 size: 16,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 '${comments.length}',
                                 style: const TextStyle(
-                                  color: _updatesGreen,
+                                  color: _updatesMaroon,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -468,9 +584,7 @@ class _ArticleScreenState extends State<_ArticleScreen> {
                 valueListenable: widget.commentStore.commentsFor(story),
                 builder: (context, comments, child) => TextButton.icon(
                   onPressed: _scrollToComments,
-                  style: TextButton.styleFrom(
-                    foregroundColor: _updatesGreen,
-                  ),
+                  style: TextButton.styleFrom(foregroundColor: _updatesMaroon),
                   icon: const Icon(Icons.chat_rounded, size: 18),
                   label: Text('${comments.length}'),
                 ),
@@ -502,13 +616,22 @@ class _ArticleScreenState extends State<_ArticleScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const Text(
-                    '11 hours ago  /  AFCON Fan',
-                    style: TextStyle(color: _updatesMuted, fontSize: 12),
+                  Text(
+                    [
+                      story.category,
+                      if (story.source != null && story.source!.isNotEmpty)
+                        story.source!,
+                      if (story.publishedAt != null &&
+                          story.publishedAt!.isNotEmpty)
+                        story.publishedAt!,
+                    ].join('  ·  '),
+                    style: const TextStyle(color: _updatesMuted, fontSize: 12),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Follow the latest from African football, with tournament coverage, team updates and the moments supporters are talking about.',
+                  Text(
+                    story.summary.isEmpty
+                        ? 'Published AFCON news and tournament updates.'
+                        : story.summary,
                     style: TextStyle(
                       color: Color(0xFF30343B),
                       fontSize: 14,
@@ -519,17 +642,28 @@ class _ArticleScreenState extends State<_ArticleScreen> {
                   const SizedBox(height: 14),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(2),
-                    child: Image.asset(
-                      'assets/images/main.webp',
-                      width: double.infinity,
-                      height: 205,
-                      fit: BoxFit.cover,
-                    ),
+                    child: story.imageAsset != null
+                        ? Image.asset(
+                            story.imageAsset!,
+                            width: double.infinity,
+                            height: 205,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                          )
+                        : story.imageUrl == null || story.imageUrl!.isEmpty
+                        ? const SizedBox.shrink()
+                        : Image.network(
+                            story.imageUrl!,
+                            width: double.infinity,
+                            height: 205,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                          ),
                   ),
                   const SizedBox(height: 5),
                   const Center(
                     child: Text(
-                      'AFCON 2025  ·  AFRICAN FOOTBALL',
+                      'CAF ONLINE  ·  AFRICAN FOOTBALL',
                       style: TextStyle(color: _updatesMuted, fontSize: 10),
                     ),
                   ),
@@ -565,8 +699,10 @@ class _ArticleScreenState extends State<_ArticleScreen> {
                               ),
                             ),
                             const SizedBox(height: 3),
-                            const Text(
-                              'AFCON 2025',
+                            Text(
+                              story.category == 'AFCON'
+                                  ? 'AFCON PAMOJA 2027'
+                                  : story.category.toUpperCase(),
                               style: TextStyle(
                                 color: _updatesInk,
                                 fontSize: 17,
@@ -578,7 +714,7 @@ class _ArticleScreenState extends State<_ArticleScreen> {
                         const SizedBox(width: 12),
                         const Icon(
                           Icons.sports_soccer_rounded,
-                          color: _updatesGreen,
+                          color: _updatesMaroon,
                           size: 26,
                         ),
                       ],
@@ -586,7 +722,7 @@ class _ArticleScreenState extends State<_ArticleScreen> {
                   ),
                   const SizedBox(height: 22),
                   const Text(
-                    'Match Report',
+                    'Story',
                     style: TextStyle(
                       color: _updatesInk,
                       fontSize: 17,
@@ -604,8 +740,8 @@ class _ArticleScreenState extends State<_ArticleScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  const Text(
-                    'Stay with AFCON Fan for match coverage, team news and updates from across the continent. Follow your favourite national teams to keep their stories close.',
+                  Text(
+                    story.body.isEmpty ? story.summary : story.body,
                     style: TextStyle(
                       color: Color(0xFF475467),
                       fontSize: 14,
@@ -773,12 +909,12 @@ class _ArticleScreenState extends State<_ArticleScreen> {
                 key: const Key('post-article-comment'),
                 tooltip: 'Post comment',
                 onPressed: _submitComment,
-                icon: const Icon(Icons.send_rounded, color: _updatesGreen),
+                icon: const Icon(Icons.send_rounded, color: _updatesMaroon),
               ),
               IconButton(
                 tooltip: 'Share via WhatsApp',
                 onPressed: _showShareMessage,
-                icon: const Icon(Icons.call_rounded, color: _updatesGreen),
+                icon: const Icon(Icons.call_rounded, color: _updatesMaroon),
               ),
               IconButton(
                 tooltip: 'Share article',
@@ -841,7 +977,7 @@ class _ArticleScreenState extends State<_ArticleScreen> {
         const CircleAvatar(
           radius: 15,
           backgroundColor: Color(0xFFE6F1E9),
-          child: Icon(Icons.person_rounded, color: _updatesGreen, size: 17),
+          child: Icon(Icons.person_rounded, color: _updatesMaroon, size: 17),
         ),
         const SizedBox(width: 9),
         Expanded(

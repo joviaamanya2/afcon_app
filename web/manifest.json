@@ -1,11 +1,11 @@
 {
-    "name": "afcon_app",
-    "short_name": "afcon_app",
+    "name": "AFCON Fan",
+    "short_name": "AFCON Fan",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FFFFFF",
+    "theme_color": "#FFFFFF",
+    "description": "AFCON news, matches and football updates.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

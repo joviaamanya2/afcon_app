@@ -33,6 +33,15 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# AFCON API secrets and build output
+/backend/.env
+/backend/node_modules/
+/backend/dist/
+/dashboard/.env
+/dashboard/node_modules/
+/dashboard/dist/
+dashboard/*.tsbuildinfo
+
 # Symbolication related
 app.*.symbols
 

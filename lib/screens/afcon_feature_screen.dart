@@ -4,16 +4,18 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 
+import 'teams_players_screen.dart';
+
 import 'community_video_controller_native.dart'
     if (dart.library.html) 'community_video_controller_web.dart'
     as community_video;
+import '../services/afcon_api.dart';
 
-const _forest = Color(0xFF176B46);
-const _deepForest = Color(0xFF104A34);
-const _gold = Color(0xFFD8A441);
-const _ink = Color(0xFF19251F);
-const _muted = Color(0xFF69766F);
-const _canvas = Color(0xFFF6F8F6);
+const _cafMaroon = Color(0xFF800000);
+const _cafMaroonDeep = Color(0xFF5C0000);
+const _ink = Color(0xFF1E1E1E);
+const _muted = Color(0xFF666666);
+const _canvas = Color(0xFFF7F7F7);
 
 /// Polished feature surfaces for AFCON features that are not yet backed by an
 /// approved live data or content provider.
@@ -32,8 +34,9 @@ class AfconFeatureScreen extends StatefulWidget {
 }
 
 class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
+  final _api = AfconApi();
+  final Map<String, Future<List<Map<String, dynamic>>>> _contentRequests = {};
   final Set<String> _followedTeams = {};
-  String _selectedMediaTab = 'Details';
   final Map<String, bool> _notificationPreferences = {
     'Match reminders': true,
     'Kick-off changes': true,
@@ -42,14 +45,168 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
   };
   final TextEditingController _questionController = TextEditingController();
   String? _submittedQuestion;
+  String? _assistantResponse;
+  bool _assistantLoading = false;
   final List<_CommunityPost> _communityPosts = [];
   final Set<int> _likedCommunityPosts = {};
 
   @override
   void dispose() {
     _questionController.dispose();
+    _api.close();
     super.dispose();
   }
+
+  Future<void> _askAssistant(String question) async {
+    final cleanedQuestion = question.trim();
+    if (cleanedQuestion.isEmpty) return;
+    setState(() {
+      _submittedQuestion = cleanedQuestion;
+      _assistantResponse = null;
+      _assistantLoading = true;
+      _questionController.text = cleanedQuestion;
+    });
+    try {
+      final result = await _api.askAssistant(question: cleanedQuestion);
+      if (!mounted) return;
+      setState(
+        () => _assistantResponse =
+            result['answer']?.toString() ?? 'No answer was returned.',
+      );
+    } on AfconApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _assistantResponse = error.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _assistantResponse = 'Could not reach the AFCON backend.');
+    } finally {
+      if (mounted) setState(() => _assistantLoading = false);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _content(String resource) =>
+      _contentRequests.putIfAbsent(
+        resource,
+        () => switch (resource) {
+          'teams' => _api.teams(),
+          'events' => _api.events(),
+          'venues' => _api.venues(),
+          'media' => _api.media(),
+          _ => Future.value(const <Map<String, dynamic>>[]),
+        },
+      );
+
+  Widget _backendContentList({
+    required String resource,
+    required String title,
+    required IconData icon,
+  }) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: _content(resource),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Padding(
+          padding: EdgeInsets.all(24),
+          child: Center(child: CircularProgressIndicator()),
+        );
+      }
+      if (snapshot.hasError) {
+        return _EventCard(
+          title: '$title unavailable',
+          detail: 'The backend could not be reached. Check your connection and try again.',
+          icon: Icons.cloud_off_rounded,
+        );
+      }
+      final records = snapshot.data ?? const <Map<String, dynamic>>[];
+      if (records.isEmpty) {
+        return _EventCard(
+          title: 'No published $title yet',
+          detail: 'Published $title added in the dashboard will appear here.',
+          icon: icon,
+        );
+      }
+      return Column(
+        children: records.map((record) {
+          final recordTitle = '${record['title'] ?? record['name'] ?? 'AFCON'}';
+          final details = resource == 'events'
+              ? '${record['city'] ?? ''}${record['starts_at'] == null ? '' : ' · ${record['starts_at']}'}'
+              : resource == 'venues'
+              ? '${record['city'] ?? ''}${record['capacity'] == null ? '' : ' · Capacity ${record['capacity']}'}'
+              : '${record['description'] ?? record['media_type'] ?? ''}';
+          if (resource == 'teams') {
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => TeamsPlayersScreen(initialTeam: recordTitle),
+                ),
+              ),
+              leading: CircleAvatar(
+                backgroundColor: const Color(0xFFF5E6E6),
+                child: Text(
+                  recordTitle.isEmpty ? 'T' : recordTitle[0],
+                  style: const TextStyle(
+                    color: _cafMaroon,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              title: Text(
+                recordTitle,
+                style: const TextStyle(
+                  color: _ink,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              subtitle: Text(
+                '${record['region'] ?? 'African team'} · ${record['coach'] ?? 'Team profile'}',
+                style: const TextStyle(color: _muted, fontSize: 11),
+              ),
+              trailing: IconButton(
+                tooltip: _followedTeams.contains(recordTitle)
+                    ? 'Unfollow $recordTitle'
+                    : 'Follow $recordTitle',
+                onPressed: () => setState(
+                  () => _followedTeams.contains(recordTitle)
+                      ? _followedTeams.remove(recordTitle)
+                      : _followedTeams.add(recordTitle),
+                ),
+                icon: Icon(
+                  _followedTeams.contains(recordTitle)
+                      ? Icons.star_rounded
+                      : Icons.star_border_rounded,
+                  color: _followedTeams.contains(recordTitle)
+                      ? const Color(0xFFB17A00)
+                      : _muted,
+                ),
+              ),
+            );
+          }
+          return ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: CircleAvatar(
+              backgroundColor: const Color(0xFFF5E6E6),
+              child: Icon(icon, color: _cafMaroon, size: 19),
+            ),
+            title: Text(
+              recordTitle,
+              style: const TextStyle(
+                color: _ink,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            subtitle: Text(
+              details.isEmpty ? title : details,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: _muted, fontSize: 11),
+            ),
+          );
+        }).toList(),
+      );
+    },
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +228,7 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
       floatingActionButton: feature == 'Community'
           ? FloatingActionButton.extended(
               onPressed: _composeCommunityPost,
-              backgroundColor: _forest,
+              backgroundColor: _cafMaroon,
               foregroundColor: Colors.white,
               icon: const Icon(Icons.edit_rounded),
               label: const Text('Create post'),
@@ -81,7 +238,7 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
           ? ListView(
               padding: const EdgeInsets.only(bottom: 28),
               children: [
-                _mediaContent(),
+                _backendMediaContent(),
                 const Padding(
                   padding: EdgeInsets.fromLTRB(18, 0, 18, 0),
                   child: _SourceNote(),
@@ -132,12 +289,11 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
                       .map(
                         (question) => ActionChip(
                           label: Text(question),
-                          onPressed: () =>
-                              setState(() => _submittedQuestion = question),
-                          backgroundColor: const Color(0xFFEAF3ED),
+                          onPressed: () => _askAssistant(question),
+                          backgroundColor: const Color(0xFFF5E6E6),
                           side: BorderSide.none,
                           labelStyle: const TextStyle(
-                            color: _forest,
+                            color: _cafMaroon,
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                           ),
@@ -149,20 +305,17 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
             TextField(
               controller: _questionController,
               textInputAction: TextInputAction.send,
-              onSubmitted: (value) =>
-                  setState(() => _submittedQuestion = value.trim()),
+              onSubmitted: _askAssistant,
               decoration: InputDecoration(
                 hintText: 'Ask in your language…',
                 suffixIcon: IconButton(
                   tooltip: 'Send question',
-                  onPressed: () => setState(
-                    () => _submittedQuestion = _questionController.text.trim(),
-                  ),
+                  onPressed: () => _askAssistant(_questionController.text),
                   icon: const Icon(
                     Icons.arrow_upward_rounded,
                     color: Colors.white,
                   ),
-                  style: IconButton.styleFrom(backgroundColor: _forest),
+                  style: IconButton.styleFrom(backgroundColor: _cafMaroon),
                 ),
                 filled: true,
                 fillColor: _canvas,
@@ -175,7 +328,11 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
             if (_submittedQuestion case final question?
                 when question.isNotEmpty) ...[
               const SizedBox(height: 14),
-              _AssistantReply(question: question),
+              _AssistantReply(
+                question: question,
+                response: _assistantResponse,
+                loading: _assistantLoading,
+              ),
             ],
           ],
         ),
@@ -189,64 +346,10 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
       const _SectionTitle('Choose your teams'),
       const SizedBox(height: 10),
       _Panel(
-        child: Column(
-          children: [
-            for (final team in [
-              'Uganda',
-              'Ghana',
-              'Ivory Coast',
-              'Nigeria',
-              'Morocco',
-              'Senegal',
-              'Egypt',
-              'South Africa',
-              'Kenya',
-              'Tanzania',
-            ])
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(
-                  backgroundColor: const Color(0xFFEAF3ED),
-                  child: Text(
-                    team[0],
-                    style: const TextStyle(
-                      color: _forest,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                title: Text(
-                  team,
-                  style: const TextStyle(
-                    color: _ink,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                subtitle: const Text(
-                  'Team profile and tournament updates',
-                  style: TextStyle(color: _muted, fontSize: 11),
-                ),
-                trailing: IconButton(
-                  tooltip: _followedTeams.contains(team)
-                      ? 'Unfollow $team'
-                      : 'Follow $team',
-                  onPressed: () => setState(
-                    () => _followedTeams.contains(team)
-                        ? _followedTeams.remove(team)
-                        : _followedTeams.add(team),
-                  ),
-                  icon: Icon(
-                    _followedTeams.contains(team)
-                        ? Icons.star_rounded
-                        : Icons.star_border_rounded,
-                    color: _followedTeams.contains(team)
-                        ? const Color(0xFFB17A00)
-                        : _muted,
-                  ),
-                ),
-              ),
-          ],
+        child: _backendContentList(
+          resource: 'teams',
+          title: 'teams',
+          icon: Icons.flag_rounded,
         ),
       ),
     ],
@@ -263,7 +366,7 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
               .map(
                 (label) => SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
-                  activeTrackColor: _forest,
+                  activeTrackColor: _cafMaroon,
                   title: Text(
                     label,
                     style: const TextStyle(
@@ -292,22 +395,12 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
     children: [
       const _SectionTitle('Around the tournament'),
       const SizedBox(height: 10),
-      const _EventCard(
-        title: 'Fan events',
-        detail: 'Official fan activities will appear here when confirmed.',
-        icon: Icons.groups_rounded,
-      ),
-      const SizedBox(height: 10),
-      const _EventCard(
-        title: 'City guide',
-        detail: 'Explore activities by host city and region.',
-        icon: Icons.location_city_rounded,
-      ),
-      const SizedBox(height: 10),
-      const _EventCard(
-        title: 'Community events',
-        detail: 'Community-submitted listings will be clearly identified and dated.',
-        icon: Icons.event_available_rounded,
+      _Panel(
+        child: _backendContentList(
+          resource: 'events',
+          title: 'fan events',
+          icon: Icons.event_available_rounded,
+        ),
       ),
     ],
   );
@@ -317,230 +410,65 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
     children: [
       const _SectionTitle('Matchday locations'),
       const SizedBox(height: 10),
-      const _EventCard(
-        title: 'Stadium details',
-        detail: 'Venue name, city, gates and facilities will be shown when official details are available.',
-        icon: Icons.stadium_rounded,
-      ),
-      const SizedBox(height: 10),
-      const _EventCard(
-        title: 'Getting there',
-        detail: 'Directions will link to verified venue locations.',
-        icon: Icons.directions_rounded,
-      ),
-      const SizedBox(height: 10),
-      const _EventCard(
-        title: 'Your selected match',
-        detail:
-            'Open Matches to choose a fixture and view its confirmed location.',
-        icon: Icons.place_rounded,
+      _Panel(
+        child: _backendContentList(
+          resource: 'venues',
+          title: 'venues',
+          icon: Icons.stadium_rounded,
+        ),
       ),
     ],
   );
 
-  Widget _mediaContent() => Column(
+  Widget _backendMediaContent() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(18, 17, 18, 20),
+        padding: const EdgeInsets.fromLTRB(18, 22, 18, 22),
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [Color(0xFF101B2B), Color(0xFF173B2D), Color(0xFF102318)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
           ),
         ),
-        child: Column(
+        child: const Column(
           children: [
-            const Text(
-              'AFCON 2025  ·  OFFICIAL MEDIA',
+            Icon(
+              Icons.play_circle_fill_rounded,
+              color: Color(0xFFFFFFFF),
+              size: 38,
+            ),
+            SizedBox(height: 9),
+            Text(
+              'AFCON MEDIA LIBRARY',
               style: TextStyle(
-                color: Color(0xFFDCE8DF),
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
                 letterSpacing: 1,
               ),
             ),
-            const SizedBox(height: 14),
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _MediaTeamBadge(label: 'AFCON'),
-                Column(
-                  children: [
-                    Text(
-                      'VIDEO',
-                      style: TextStyle(
-                        color: Color(0xFFB7C4BD),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'HIGHLIGHTS',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-                _MediaTeamBadge(label: '2025'),
-              ],
-            ),
-            const SizedBox(height: 14),
-            const Text(
-              'Goals, match moments and tournament stories',
+            SizedBox(height: 5),
+            Text(
+              'Published photos, videos and audio from the dashboard',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFFE2E8E4), fontSize: 11),
+              style: TextStyle(color: Color(0xFFDCE8DF), fontSize: 12),
             ),
           ],
         ),
       ),
-      SizedBox(
-        height: 42,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (final tab in [
-                'Details',
-                'Lineups',
-                'Ratings',
-                'H2H',
-                'Predictions',
-                'Analysis',
-              ])
-                InkWell(
-                  onTap: () => setState(() => _selectedMediaTab = tab),
-                  child: Container(
-                    height: 42,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: _selectedMediaTab == tab
-                              ? _forest
-                              : Colors.transparent,
-                          width: 2,
-                        ),
-                      ),
-                    ),
-                    child: Text(
-                      tab,
-                      style: TextStyle(
-                        color: _selectedMediaTab == tab ? _forest : _muted,
-                        fontSize: 11,
-                        fontWeight: _selectedMediaTab == tab
-                            ? FontWeight.w800
-                            : FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-      const Divider(height: 1, color: Color(0xFFE6E9EC)),
       Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const _SectionTitle('Match Report'),
-            const SizedBox(height: 9),
-            _MediaReportCard(onTap: _openMediaNotice),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                const Expanded(child: _SectionTitle('Match Moments')),
-                TextButton(
-                  onPressed: _openMediaNotice,
-                  child: const Text(
-                    'VIEW ALL',
-                    style: TextStyle(
-                      color: _forest,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            SizedBox(
-              height: 112,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  _MediaMomentCard(
-                    title: 'Opening moments',
-                    subtitle: 'AFCON matchday',
-                    icon: Icons.sports_soccer_rounded,
-                    colors: const [Color(0xFF174A36), Color(0xFF377957)],
-                    onTap: _openMediaNotice,
-                  ),
-                  _MediaMomentCard(
-                    title: 'Best chances',
-                    subtitle: 'Key match moments',
-                    icon: Icons.bolt_rounded,
-                    colors: const [Color(0xFF7C3E25), Color(0xFFD67A32)],
-                    onTap: _openMediaNotice,
-                  ),
-                  _MediaMomentCard(
-                    title: 'Full-time reaction',
-                    subtitle: 'From the touchline',
-                    icon: Icons.celebration_rounded,
-                    colors: const [Color(0xFF263B66), Color(0xFF5682A5)],
-                    onTap: _openMediaNotice,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 17),
-            const _SectionTitle('Highlights & Playback'),
-            const SizedBox(height: 9),
-            _MediaPlaybackCard(onTap: _openMediaNotice),
-            const SizedBox(height: 10),
-            const Text(
-              'Official video clips will appear here when licensed tournament media is available.',
-              style: TextStyle(color: _muted, fontSize: 11, height: 1.4),
-            ),
-            const SizedBox(height: 18),
-            const _SectionTitle('More from AFCON'),
-            const SizedBox(height: 9),
-            const _EventCard(
-              title: 'Interviews & press conferences',
-              detail: 'Official team and player interviews.',
-              icon: Icons.mic_rounded,
-            ),
-            const SizedBox(height: 9),
-            const _EventCard(
-              title: 'Photos & stories',
-              detail: 'Tournament galleries and newsroom updates.',
-              icon: Icons.photo_library_rounded,
-            ),
-          ],
+        padding: const EdgeInsets.all(16),
+        child: _Panel(
+          child: _backendContentList(
+            resource: 'media',
+            title: 'media',
+            icon: Icons.play_circle_outline_rounded,
+          ),
         ),
       ),
     ],
   );
-
-  void _openMediaNotice() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Official video playback will be available when licensed clips are connected.',
-        ),
-      ),
-    );
-  }
 
   Future<void> _composeCommunityPost() async {
     final draft = await showModalBottomSheet<_CommunityPostDraft>(
@@ -821,7 +749,7 @@ class _ComposeCommunityPostSheetState
                   key: const Key('community-submit-post'),
                   onPressed: _submitPost,
                   style: FilledButton.styleFrom(
-                    backgroundColor: _forest,
+                    backgroundColor: _cafMaroon,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -857,8 +785,8 @@ class _CommunityComposer extends StatelessWidget {
         children: [
           const CircleAvatar(
             radius: 20,
-            backgroundColor: Color(0xFFEAF3ED),
-            child: Icon(Icons.person_rounded, color: _forest),
+            backgroundColor: Color(0xFFF5E6E6),
+            child: Icon(Icons.person_rounded, color: _cafMaroon),
           ),
           const SizedBox(width: 11),
           const Expanded(
@@ -871,10 +799,10 @@ class _CommunityComposer extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: const Color(0xFFEAF3ED),
+              color: const Color(0xFFF5E6E6),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.add_rounded, color: _forest),
+            child: const Icon(Icons.add_rounded, color: _cafMaroon),
           ),
         ],
       ),
@@ -904,8 +832,8 @@ class _CommunityPostCard extends StatelessWidget {
           children: [
             const CircleAvatar(
               radius: 19,
-              backgroundColor: Color(0xFFEAF3ED),
-              child: Icon(Icons.person_rounded, color: _forest, size: 21),
+              backgroundColor: Color(0xFFF5E6E6),
+              child: Icon(Icons.person_rounded, color: _cafMaroon, size: 21),
             ),
             const SizedBox(width: 10),
             const Expanded(
@@ -995,7 +923,7 @@ class _SelectedMediaThumbnail extends StatelessWidget {
         children: [
           if (media.isVideo)
             Container(
-              color: _deepForest,
+              color: _cafMaroonDeep,
               child: const Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -1118,7 +1046,7 @@ class _CommunityPostMedia extends StatelessWidget {
     width: double.infinity,
     height: 190,
     decoration: BoxDecoration(
-      color: _deepForest,
+      color: _cafMaroonDeep,
       borderRadius: BorderRadius.circular(12),
     ),
     child: Column(
@@ -1183,7 +1111,7 @@ class _CommunityVideoPlayerState extends State<_CommunityVideoPlayer> {
         height: 190,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: _deepForest,
+          color: _cafMaroonDeep,
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Text(
@@ -1196,7 +1124,7 @@ class _CommunityVideoPlayerState extends State<_CommunityVideoPlayer> {
       return const SizedBox(
         height: 190,
         child: ColoredBox(
-          color: _deepForest,
+          color: _cafMaroonDeep,
           child: Center(child: CircularProgressIndicator(color: Colors.white)),
         ),
       );
@@ -1237,7 +1165,7 @@ class _CommunityVideoPlayerState extends State<_CommunityVideoPlayer> {
               _controller,
               allowScrubbing: true,
               colors: const VideoProgressColors(
-                playedColor: _gold,
+                playedColor: _cafMaroon,
                 bufferedColor: Colors.white54,
                 backgroundColor: Colors.black45,
               ),
@@ -1263,7 +1191,7 @@ class _CommunityEmptyState extends StatelessWidget {
             color: const Color(0xFFFFF4D9),
             borderRadius: BorderRadius.circular(17),
           ),
-          child: const Icon(Icons.forum_rounded, color: _forest, size: 27),
+          child: const Icon(Icons.forum_rounded, color: _cafMaroon, size: 27),
         ),
         const SizedBox(height: 12),
         const Text(
@@ -1312,8 +1240,14 @@ class _CommunitySafetyNote extends StatelessWidget {
 }
 
 class _AssistantReply extends StatelessWidget {
-  const _AssistantReply({required this.question});
+  const _AssistantReply({
+    required this.question,
+    required this.response,
+    required this.loading,
+  });
   final String question;
+  final String? response;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -1323,9 +1257,42 @@ class _AssistantReply extends StatelessWidget {
       color: const Color(0xFFFFF5DD),
       borderRadius: BorderRadius.circular(12),
     ),
-    child: Text(
-      'You asked: “$question”\n\nI can answer this once connected to current, approved AFCON sources. I won’t guess about fixtures or venues.',
-      style: const TextStyle(color: _ink, fontSize: 12, height: 1.5),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'You asked: "$question"',
+          style: const TextStyle(
+            color: _ink,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 7),
+        if (loading)
+          const Row(
+            children: [
+              SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: _cafMaroon,
+                ),
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Checking verified AFCON information...',
+                style: TextStyle(color: _muted, fontSize: 12),
+              ),
+            ],
+          )
+        else
+          Text(
+            response ?? 'No answer returned.',
+            style: const TextStyle(color: _ink, fontSize: 12, height: 1.5),
+          ),
+      ],
     ),
   );
 }
@@ -1374,7 +1341,7 @@ class _FeatureHero extends StatelessWidget {
               Text(
                 feature.toUpperCase(),
                 style: const TextStyle(
-                  color: _forest,
+                  color: _cafMaroon,
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.1,
@@ -1394,7 +1361,7 @@ class _FeatureHero extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEAF3ED),
+                  color: const Color(0xFFF5E6E6),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -1402,7 +1369,7 @@ class _FeatureHero extends StatelessWidget {
                       ? 'POST IN THIS SESSION'
                       : 'FEATURE PREVIEW',
                   style: const TextStyle(
-                    color: _forest,
+                    color: _cafMaroon,
                     fontSize: 9,
                     fontWeight: FontWeight.w800,
                     letterSpacing: .7,
@@ -1417,277 +1384,12 @@ class _FeatureHero extends StatelessWidget {
           width: 54,
           height: 54,
           decoration: BoxDecoration(
-            color: const Color(0xFFEAF3ED),
+            color: const Color(0xFFF5E6E6),
             borderRadius: BorderRadius.circular(14),
           ),
-          child: Icon(icon, color: _forest, size: 27),
+          child: Icon(icon, color: _cafMaroon, size: 27),
         ),
       ],
-    ),
-  );
-}
-
-class _MediaTeamBadge extends StatelessWidget {
-  const _MediaTeamBadge({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .12),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withValues(alpha: .25)),
-        ),
-        child: const Icon(
-          Icons.sports_soccer_rounded,
-          color: Colors.white,
-          size: 23,
-        ),
-      ),
-      const SizedBox(height: 5),
-      Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    ],
-  );
-}
-
-class _MediaReportCard extends StatelessWidget {
-  const _MediaReportCard({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(10),
-    child: InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Padding(
-        padding: const EdgeInsets.all(9),
-        child: Row(
-          children: [
-            Container(
-              width: 72,
-              height: 60,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFD97C38), Color(0xFF9B392D)],
-                ),
-                borderRadius: BorderRadius.circular(7),
-              ),
-              child: const Icon(
-                Icons.sports_soccer_rounded,
-                color: Colors.white,
-                size: 30,
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'AFCON matchday report',
-                    style: TextStyle(
-                      color: _ink,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Goals, key chances and the moments that shaped the game.',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: _muted, fontSize: 10, height: 1.35),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 5),
-            const Icon(Icons.chevron_right_rounded, color: _muted, size: 19),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-class _MediaMomentCard extends StatelessWidget {
-  const _MediaMomentCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.colors,
-    required this.onTap,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final List<Color> colors;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: 142,
-    child: Padding(
-      padding: const EdgeInsets.only(right: 9),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: colors,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  child: Stack(
-                    children: [
-                      Positioned(
-                        right: -4,
-                        bottom: -13,
-                        child: Icon(
-                          icon,
-                          size: 72,
-                          color: Colors.white.withValues(alpha: .18),
-                        ),
-                      ),
-                      const Center(
-                        child: Icon(
-                          Icons.play_circle_fill_rounded,
-                          color: Colors.white,
-                          size: 27,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(6, 5, 6, 5),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _ink,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: _muted, fontSize: 8),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-class _MediaPlaybackCard extends StatelessWidget {
-  const _MediaPlaybackCard({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    key: const Key('media-playback-card'),
-    color: const Color(0xFF102319),
-    borderRadius: BorderRadius.circular(9),
-    clipBehavior: Clip.antiAlias,
-    child: InkWell(
-      onTap: onTap,
-      child: SizedBox(
-        height: 172,
-        width: double.infinity,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment(0, .45),
-                  radius: 1.1,
-                  colors: [
-                    Color(0xFF558555),
-                    Color(0xFF1B4935),
-                    Color(0xFF111B2A),
-                  ],
-                ),
-              ),
-            ),
-            Positioned(
-              left: -20,
-              right: -20,
-              bottom: -30,
-              child: Icon(
-                Icons.stadium_rounded,
-                size: 180,
-                color: Colors.white.withValues(alpha: .14),
-              ),
-            ),
-            const Center(
-              child: Icon(
-                Icons.play_circle_fill_rounded,
-                color: Colors.white,
-                size: 54,
-                shadows: [Shadow(color: Colors.black54, blurRadius: 10)],
-              ),
-            ),
-            const Positioned(
-              left: 11,
-              right: 11,
-              bottom: 10,
-              child: Text(
-                'AFCON HIGHLIGHTS  ·  FULL MATCH PLAYBACK',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: .5,
-                  shadows: [Shadow(color: Colors.black54, blurRadius: 5)],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     ),
   );
 }
@@ -1740,10 +1442,10 @@ class _EventCard extends StatelessWidget {
           width: 42,
           height: 42,
           decoration: BoxDecoration(
-            color: const Color(0xFFEAF3ED),
+            color: const Color(0xFFF5E6E6),
             borderRadius: BorderRadius.circular(13),
           ),
-          child: Icon(icon, color: _forest),
+          child: Icon(icon, color: _cafMaroon),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -1791,7 +1493,7 @@ class _SourceNote extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const Icon(Icons.verified_user_outlined, color: _forest, size: 17),
+      const Icon(Icons.verified_user_outlined, color: _cafMaroon, size: 17),
       const SizedBox(width: 8),
       Expanded(
         child: Text(

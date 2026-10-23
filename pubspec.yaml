@@ -11,6 +11,7 @@ dependencies:
     sdk: flutter
   image_picker: ^1.2.4
   video_player: ^2.14.1
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:
@@ -22,3 +23,17 @@ flutter:
   assets:
     - assets/images/main.webp
     - assets/images/cup.png
+    - assets/images/afcon_app_icon_master.png
+    - assets/images/afcon_logo_clean.png
+    - assets/images/official_partner_clean.png
+    - 'assets/images/new images/logo.jpeg'
+    - 'assets/images/official partner.png'
+    - 'assets/images/new images/home screen images/afcon_pamoja_q.webp'
+    - 'assets/images/new images/home screen images/afcon-draw-q-potsjpg.webp'
+    - 'assets/images/new images/home screen images/amad-diallo-of-cote-ivoire-is-challenged-by-darlin-yongwa-ngameni-of-cameroon.webp'
+    - 'assets/images/new images/home screen images/Cafcon.webp'
+    - 'assets/images/new images/home screen images/benjamin-mkapa-stadium_ok.webp'
+    - 'assets/images/new images/media/women.PNG'
+    - 'assets/images/new images/news images/b26i3fr0265.webp'
+    - 'assets/images/new images/news images/caleb-yirenkyi.webp'
+    - 'assets/images/new images/news images/morocco-s-midfielder-ismael-saibari-scores-goal-against-brazil.webp'

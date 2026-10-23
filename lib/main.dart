@@ -8,17 +8,16 @@ import 'screens/matches_screen.dart';
 import 'screens/teams_players_screen.dart';
 import 'screens/updates_screen.dart';
 import './screens/afcon_theme.dart';
+import 'services/afcon_api.dart';
 
 void main() {
   runApp(const AfconApp());
 }
 
-const _navy = Color(0xFF172B27);
-const _green = Color(0xFF176B46);
-const _gold = Color(0xFFD8A441);
-const _ink = Color(0xFF19251F);
-const _muted = Color(0xFF69766F);
-const _canvas = Color(0xFFF6F8F6);
+const _brandMaroon = Color.fromARGB(255, 136, 2, 9);
+const _ink = Color(0xFF1E1E1E);
+const _muted = Color(0xFF666666);
+const _canvas = Color(0xFFF7F7F7);
 
 class AfconApp extends StatelessWidget {
   const AfconApp({super.key});
@@ -29,7 +28,138 @@ class AfconApp extends StatelessWidget {
       title: 'AFCON Fan',
       debugShowCheckedModeBanner: false,
       theme: buildAfconTheme(),
-      home: const AfconHome(),
+      home: const AfconSplashScreen(),
+    );
+  }
+}
+
+class AfconSplashScreen extends StatefulWidget {
+  const AfconSplashScreen({super.key});
+
+  @override
+  State<AfconSplashScreen> createState() => _AfconSplashScreenState();
+}
+
+class _AfconSplashScreenState extends State<AfconSplashScreen> {
+  Timer? _splashTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _splashTimer = Timer(const Duration(milliseconds: 2600), () {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder<void>(
+          pageBuilder: (_, _, _) => const AfconHome(),
+          transitionDuration: const Duration(milliseconds: 600),
+          transitionsBuilder: (_, animation, _, child) => FadeTransition(
+            opacity: animation,
+            child: child,
+          ),
+        ),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _splashTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.92, end: 1),
+                  duration: const Duration(milliseconds: 700),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, scale, child) => Transform.scale(
+                    scale: scale,
+                    child: child,
+                  ),
+                  child: Image.asset(
+                    'assets/images/afcon_logo_clean.png',
+                    width: 270,
+                    height: 270,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) => const Icon(
+                      Icons.sports_soccer_rounded,
+                      color: _brandMaroon,
+                      size: 100,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'AFCON FAN',
+                  style: TextStyle(
+                    color: _brandMaroon,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'TOGETHER IN FOOTBALL',
+                  style: TextStyle(
+                    color: _muted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.6,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: Color(0xFFE9E9E9))),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                'Official Title Sponsor',
+                style: TextStyle(
+                  color: _muted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Image.asset(
+                'assets/images/official_partner_clean.png',
+                width: 86,
+                height: 42,
+                fit: BoxFit.contain,
+                errorBuilder: (_, _, _) => const Text(
+                  'TotalEnergies',
+                  style: TextStyle(
+                    color: _ink,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -44,11 +174,21 @@ class AfconHome extends StatefulWidget {
 class _AfconHomeState extends State<AfconHome> {
   int _selectedIndex = 0;
   String _selectedLanguage = 'English';
+  String _selectedMatchCategory = 'All';
+  int _matchScreenVersion = 0;
 
-  void _openMatches() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (context) => const MatchesScreen()),
-    );
+  void _openMatchCategory(String category) {
+    if (category == 'Stats') {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => const MatchStatsScreen()));
+      return;
+    }
+    setState(() {
+      _selectedMatchCategory = category;
+      _selectedIndex = 2;
+      _matchScreenVersion++;
+    });
   }
 
   void _openShortcut(String title) {
@@ -138,8 +278,8 @@ class _AfconHomeState extends State<AfconHome> {
             tooltip: 'Notifications',
             onPressed: () => _openShortcut('Notifications'),
             style: IconButton.styleFrom(
-              foregroundColor: _green,
-              backgroundColor: const Color(0xFFEAF3ED),
+              foregroundColor: _brandMaroon,
+              backgroundColor: const Color(0xFFF5E6E6),
               shape: const CircleBorder(),
             ),
             icon: Stack(
@@ -169,8 +309,8 @@ class _AfconHomeState extends State<AfconHome> {
               tooltip: 'Open menu',
               onPressed: () => Scaffold.of(context).openEndDrawer(),
               style: IconButton.styleFrom(
-                foregroundColor: _green,
-                backgroundColor: const Color(0xFFEAF3ED),
+                foregroundColor: _brandMaroon,
+                backgroundColor: const Color(0xFFF5E6E6),
                 shape: const CircleBorder(),
               ),
               icon: const Icon(Icons.menu_rounded),
@@ -221,7 +361,7 @@ class _AfconHomeState extends State<AfconHome> {
               const Divider(),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.tune_rounded, color: _green),
+                leading: const Icon(Icons.tune_rounded, color: _brandMaroon),
                 title: const Text('Settings'),
                 subtitle: const Text('Accessibility, data use and privacy'),
                 onTap: () {
@@ -242,15 +382,15 @@ class _AfconHomeState extends State<AfconHome> {
               index: _selectedIndex,
               children: [
                 _HomePage(
-                  onOpenMatches: _openMatches,
+                  onOpenMatchCategory: _openMatchCategory,
                   onOpenShortcut: _openShortcut,
                   language: _selectedLanguage,
                 ),
-                const _InfoPage(
-                  icon: Icons.sports_soccer_rounded,
-                  title: 'Matches',
-                  subtitle: 'Fixtures, results, standings, line-ups and match venues will appear here.',
-                  detail: 'Official match information has not been connected yet. Dates, scores and venues will be shown here once an approved source is available.',
+                const UpdatesScreen(showBackButton: false),
+                MatchesScreen(
+                  key: ValueKey('$_selectedMatchCategory-$_matchScreenVersion'),
+                  initialCategory: _selectedMatchCategory,
+                  showBackButton: false,
                 ),
                 const ExploreScreen(),
                 const AfconFeatureScreen(
@@ -264,18 +404,23 @@ class _AfconHomeState extends State<AfconHome> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          if (index == 1) {
-            _openMatches();
-          } else {
-            setState(() => _selectedIndex = index);
+        onDestinationSelected: (index) => setState(() {
+          _selectedIndex = index;
+          if (index == 2) {
+            _selectedMatchCategory = 'All';
+            _matchScreenVersion++;
           }
-        },
+        }),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home_rounded),
             label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.article_outlined),
+            selectedIcon: Icon(Icons.article_rounded),
+            label: 'News',
           ),
           NavigationDestination(
             icon: Icon(Icons.sports_soccer_outlined),
@@ -310,13 +455,19 @@ class _BrandMark extends StatelessWidget {
           width: 38,
           height: 38,
           decoration: BoxDecoration(
-            color: _green,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Icon(
-            Icons.sports_soccer_rounded,
             color: Colors.white,
-            size: 23,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE8E2D2)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Image.asset(
+            'assets/images/afcon_logo_clean.png',
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) => const Icon(
+              Icons.sports_soccer_rounded,
+              color: _brandMaroon,
+              size: 23,
+            ),
           ),
         ),
         const SizedBox(width: 10),
@@ -398,12 +549,12 @@ class _LanguagePicker extends StatelessWidget {
 
 class _HomePage extends StatelessWidget {
   const _HomePage({
-    required this.onOpenMatches,
+    required this.onOpenMatchCategory,
     required this.onOpenShortcut,
     required this.language,
   });
 
-  final VoidCallback onOpenMatches;
+  final ValueChanged<String> onOpenMatchCategory;
   final ValueChanged<String> onOpenShortcut;
   final String language;
 
@@ -413,74 +564,246 @@ class _HomePage extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 30),
       children: [
         _QuickLinks(onSelected: onOpenShortcut),
-        const SizedBox(height: 2),
-        _TodaysMatches(onOpenMatches: onOpenMatches),
         const SizedBox(height: 14),
         _WelcomeBanner(language: language),
         const SizedBox(height: 24),
         _SectionHeading(
-          title: 'Happening around you',
-          actionLabel: 'Explore events',
-          onAction: () => onOpenShortcut('Events'),
+          title: 'The road to PAMOJA 2027',
+          actionLabel: 'View groups',
+          onAction: () => onOpenMatchCategory('Groups'),
         ),
         const SizedBox(height: 12),
-        const _EventsPlaceholder(),
+        _Pamoja2027Card(
+          onOpenQualifiers: () => onOpenMatchCategory('Qualifiers'),
+        ),
         const SizedBox(height: 24),
         const _TranslationCard(),
+        const SizedBox(height: 24),
+        _MatchCenterCards(onOpenCategory: onOpenMatchCategory),
+        const SizedBox(height: 14),
+        _WomensFootballAdvert(onTap: () => onOpenShortcut('Events')),
       ],
     );
   }
 }
 
-class _TodaysMatches extends StatelessWidget {
-  const _TodaysMatches({required this.onOpenMatches});
+class _WomensFootballAdvert extends StatelessWidget {
+  const _WomensFootballAdvert({required this.onTap});
 
-  final VoidCallback onOpenMatches;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(18),
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFF0D9E4)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x12000000),
+              blurRadius: 12,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.campaign_rounded,
+                  color: Color(0xFF800000),
+                  size: 17,
+                ),
+                const SizedBox(width: 7),
+                const Expanded(
+                  child: Text(
+                    'FEATURED TOURNAMENT',
+                    style: TextStyle(
+                      color: Color(0xFF800000),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .8,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.open_in_new_rounded,
+                  color: Colors.black.withValues(alpha: .45),
+                  size: 16,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: AspectRatio(
+                aspectRatio: 7,
+                child: Image.asset(
+                  'assets/images/new images/media/women.PNG',
+                  width: double.infinity,
+                  fit: BoxFit.fill,
+                  semanticLabel: 'CAF Women’s Champions League Egypt 2026, 1–15 November 2026',
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Explore women’s football',
+                    style: TextStyle(
+                      color: _ink,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const Text(
+                  'Discover',
+                  style: TextStyle(
+                    color: Color(0xFF800000),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(width: 3),
+                const Icon(
+                  Icons.arrow_forward_rounded,
+                  color: Color(0xFF800000),
+                  size: 15,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _MatchCenterCards extends StatelessWidget {
+  const _MatchCenterCards({required this.onOpenCategory});
+
+  final ValueChanged<String> onOpenCategory;
+
+  static const _items = <(String, String, IconData)>[
+    ('Live', 'Live', Icons.wifi_tethering_rounded),
+    ('Fixtures', 'Fixtures', Icons.calendar_month_rounded),
+    ('Results', 'Results', Icons.flag_rounded),
+    ('Groups', 'Groups', Icons.table_chart_rounded),
+    ('Venues', 'Venues', Icons.stadium_rounded),
+    ('Events & stats', 'Stats', Icons.bar_chart_rounded),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final month = const [
-      'JAN',
-      'FEB',
-      'MAR',
-      'APR',
-      'MAY',
-      'JUN',
-      'JUL',
-      'AUG',
-      'SEP',
-      'OCT',
-      'NOV',
-      'DEC',
-    ][now.month - 1];
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionHeading(
-          title: "Today's matches",
-          actionLabel: 'All matches',
-          onAction: onOpenMatches,
+        const Text(
+          'Match centre',
+          style: TextStyle(
+            color: _ink,
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+          ),
         ),
         const SizedBox(height: 4),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _TodayMatchCard(
-                dateLabel: '${now.day} $month',
-                homeTeam: 'Uganda',
-                awayTeam: 'Ghana',
-                time: '19:45',
-                onTap: onOpenMatches,
-              ),
-            ],
-          ),
+        const Text(
+          'Fixtures, scores, groups and venues',
+          style: TextStyle(color: _muted, fontSize: 12),
+        ),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = constraints.maxWidth >= 720 ? 6 : 3;
+            final spacing = 8.0;
+            final width =
+                (constraints.maxWidth - spacing * (columns - 1)) / columns;
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: _items.map((item) {
+                return SizedBox(
+                  width: width,
+                  child: _MatchCenterCard(
+                    title: item.$1,
+                    icon: item.$3,
+                    onTap: () => onOpenCategory(item.$2),
+                  ),
+                );
+              }).toList(),
+            );
+          },
         ),
       ],
     );
   }
+}
+
+class _MatchCenterCard extends StatelessWidget {
+  const _MatchCenterCard({
+    required this.title,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String title;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(14),
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        height: 72,
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE6E6E6)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5E6E6),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: _brandMaroon, size: 16),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: _ink,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _WelcomeBanner extends StatefulWidget {
@@ -493,198 +816,226 @@ class _WelcomeBanner extends StatefulWidget {
 }
 
 class _WelcomeBannerState extends State<_WelcomeBanner> {
-  static const _images = ['assets/images/main.webp', 'assets/images/cup.png'];
+  static const _images = [
+    'assets/images/cup.png',
+    'assets/images/new images/home screen images/amad-diallo-of-cote-ivoire-is-challenged-by-darlin-yongwa-ngameni-of-cameroon.webp',
+    'assets/images/new images/home screen images/Cafcon.webp',
+    'assets/images/new images/home screen images/benjamin-mkapa-stadium_ok.webp',
+  ];
+  static const _headlines = [
+    'The AFCON trophy',
+    'African football, live',
+    'The stage for Africa’s best',
+    'A continent united',
+  ];
 
-  final _pageController = PageController();
   Timer? _rotationTimer;
   int _currentPage = 0;
+
+  String get _todayLabel {
+    final now = DateTime.now();
+    const weekdays = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return '${weekdays[now.weekday - 1]}, ${now.day} '
+        '${months[now.month - 1]} ${now.year}';
+  }
 
   @override
   void initState() {
     super.initState();
     _rotationTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (!mounted || !_pageController.hasClients) return;
-      final nextPage = (_currentPage + 1) % _images.length;
-      _pageController.animateToPage(
-        nextPage,
-        duration: const Duration(milliseconds: 650),
-        curve: Curves.easeInOutCubic,
-      );
+      if (!mounted) return;
+      _showSlide((_currentPage + 1) % _images.length);
     });
   }
 
   @override
   void dispose() {
     _rotationTimer?.cancel();
-    _pageController.dispose();
     super.dispose();
   }
+
+  void _showSlide(int slide) =>
+      setState(() => _currentPage = slide % _images.length);
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        color: _navy,
+        borderRadius: BorderRadius.circular(18),
+        color: Colors.white,
         boxShadow: const [
           BoxShadow(
-            color: Color(0x1A102A43),
-            blurRadius: 18,
-            offset: Offset(0, 7),
+            color: Color(0x14000000),
+            blurRadius: 14,
+            offset: Offset(0, 5),
           ),
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            height: 150,
-            child: PageView.builder(
-              key: const Key('home-hero-image-carousel'),
-              controller: _pageController,
-              itemCount: _images.length,
-              onPageChanged: (page) => setState(() => _currentPage = page),
-              itemBuilder: (context, index) => Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.asset(
-                    _images[index],
-                    key: ValueKey(_images[index]),
-                    fit: BoxFit.cover,
-                    alignment: Alignment.center,
-                  ),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withValues(alpha: 0.03),
-                          _navy.withValues(alpha: 0.88),
-                        ],
-                        stops: const [0.2, 1],
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: 18,
-                    right: 18,
-                    bottom: 14,
-                    child: Text(
-                      index == 0
-                          ? 'THE ROAD TO AFCON 2025'
-                          : 'ONE TROPHY. ONE CONTINENT.',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1,
-                        shadows: [Shadow(color: Colors.black45, blurRadius: 8)],
-                      ),
-                    ),
-                  ),
-                ],
+      child: SizedBox(
+        height: 250,
+        child: GestureDetector(
+          key: const Key('home-hero-image-carousel'),
+          onHorizontalDragEnd: (details) {
+            final velocity = details.primaryVelocity ?? 0;
+            if (velocity.abs() < 100) return;
+            final next =
+                (_currentPage + (velocity < 0 ? 1 : -1)) % _images.length;
+            _showSlide(next < 0 ? next + _images.length : next);
+          },
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 800),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 1.025, end: 1).animate(
+                  CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                ),
+                child: child,
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Stack(
+              key: ValueKey(_images[_currentPage]),
+              fit: StackFit.expand,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Text(
-                        'YOUR TOURNAMENT, YOUR LANGUAGE',
-                        style: TextStyle(
-                          color: Color(0xFFFFD978),
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1,
-                        ),
+                Image.asset(
+                  _images[_currentPage],
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                ),
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0x00000000),
+                        Color(0x08000000),
+                        Color(0xC9000000),
+                      ],
+                      stops: [0.35, 0.57, 1],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 14,
+                  left: 14,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.94),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'AFCON  •  ${widget.language.toUpperCase()}',
+                      style: const TextStyle(
+                        color: Color(0xFF800000),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .5,
                       ),
                     ),
-                    const Spacer(),
-                    Row(
-                      children: List.generate(
-                        _images.length,
-                        (index) => Semantics(
-                          button: true,
-                          selected: _currentPage == index,
-                          label: 'Show AFCON image ${index + 1}',
-                          child: GestureDetector(
-                            key: Key('home-hero-indicator-$index'),
-                            onTap: () => _pageController.animateToPage(
-                              index,
-                              duration: const Duration(milliseconds: 450),
-                              curve: Curves.easeInOutCubic,
-                            ),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 250),
-                              width: _currentPage == index ? 18 : 7,
-                              height: 7,
-                              margin: const EdgeInsets.only(left: 5),
-                              decoration: BoxDecoration(
-                                color: _currentPage == index
-                                    ? _gold
-                                    : Colors.white.withValues(alpha: 0.5),
-                                borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                Positioned(
+                  left: 14,
+                  right: 14,
+                  bottom: 12,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _headlines[_currentPage],
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 19,
+                          height: 1.12,
+                          fontWeight: FontWeight.w900,
+                          shadows: [
+                            Shadow(color: Colors.black54, blurRadius: 8),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 9),
+                      Container(height: 1, color: Colors.white54),
+                      const SizedBox(height: 7),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _todayLabel,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
-                        ),
+                          Row(
+                            children: List.generate(
+                              _images.length,
+                              (dotIndex) => Semantics(
+                                button: true,
+                                selected: _currentPage == dotIndex,
+                                label: 'Show AFCON image ${dotIndex + 1}',
+                                child: GestureDetector(
+                                  key: Key('home-hero-indicator-$dotIndex'),
+                                  onTap: () => _showSlide(dotIndex),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 250),
+                                    width: _currentPage == dotIndex ? 16 : 6,
+                                    height: 6,
+                                    margin: const EdgeInsets.only(left: 4),
+                                    decoration: BoxDecoration(
+                                      color: _currentPage == dotIndex
+                                          ? Colors.white
+                                          : Colors.white54,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'The beautiful game,\ncloser to everyone.',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 23,
-                    height: 1.12,
-                    fontWeight: FontWeight.w800,
+                    ],
                   ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Your experience is set to ${widget.language}. Follow matches, explore events and enjoy the conversation.',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.78),
-                    fontSize: 13,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                const Row(
-                  children: [
-                    Icon(Icons.translate_rounded, color: _gold, size: 18),
-                    SizedBox(width: 7),
-                    Text(
-                      'Football for every language',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -718,7 +1069,7 @@ class _SectionHeading extends StatelessWidget {
         TextButton(
           onPressed: onAction,
           style: TextButton.styleFrom(
-            foregroundColor: _green,
+            foregroundColor: _brandMaroon,
             padding: const EdgeInsets.symmetric(horizontal: 8),
           ),
           child: Text(
@@ -731,246 +1082,152 @@ class _SectionHeading extends StatelessWidget {
   }
 }
 
-class _TodayMatchCard extends StatelessWidget {
-  const _TodayMatchCard({
-    required this.dateLabel,
-    required this.homeTeam,
-    required this.awayTeam,
-    required this.time,
-    required this.onTap,
-  });
+class _Pamoja2027Card extends StatelessWidget {
+  const _Pamoja2027Card({required this.onOpenQualifiers});
 
-  final String dateLabel;
-  final String homeTeam;
-  final String awayTeam;
-  final String time;
-  final VoidCallback onTap;
+  final VoidCallback onOpenQualifiers;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 310,
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
-          child: Container(
-            padding: const EdgeInsets.all(11),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFE8EEF0)),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x080B2D36),
-                  blurRadius: 16,
-                  offset: Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'TODAY · $dateLabel · $time',
-                        style: const TextStyle(
-                          color: _muted,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.4,
-                        ),
-                      ),
-                    ),
-                    const Text(
-                      'SAMPLE',
-                      style: TextStyle(
-                        color: Color(0xFF9A6B10),
-                        fontSize: 8,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _HomeFixtureTeam(
-                        name: homeTeam,
-                        initial: 'U',
-                        color: _green,
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(
-                        'VS',
-                        style: TextStyle(
-                          color: _muted,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: _HomeFixtureTeam(
-                        name: awayTeam,
-                        initial: 'G',
-                        color: const Color(0xFFD84343),
-                        alignEnd: true,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _HomeFixtureTeam extends StatelessWidget {
-  const _HomeFixtureTeam({
-    required this.name,
-    required this.initial,
-    required this.color,
-    this.alignEnd = false,
-  });
-
-  final String name;
-  final String initial;
-  final Color color;
-  final bool alignEnd;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: alignEnd
-          ? MainAxisAlignment.end
-          : MainAxisAlignment.start,
-      children: [
-        if (alignEnd) ...[
-          Flexible(
-            child: Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.end,
-              style: const TextStyle(
-                color: _ink,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: 5),
-        ],
-        _HomeTeamBadge(initial: initial, color: color),
-        if (!alignEnd) ...[
-          const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: _ink,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _HomeTeamBadge extends StatelessWidget {
-  const _HomeTeamBadge({required this.initial, required this.color});
-
-  final String initial;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 28,
-      height: 28,
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onOpenQualifiers,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE8E8E8)),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x22000000),
-            blurRadius: 3,
-            offset: Offset(0, 1),
+            color: Color(0x10000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
           ),
         ],
       ),
-      alignment: Alignment.center,
-      child: Text(
-        initial,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 13,
-          fontWeight: FontWeight.w900,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 1.3,
+            child: Image.asset(
+              'assets/images/new images/home screen images/afcon_pamoja_q.webp',
+              fit: BoxFit.fill,
+              semanticLabel: 'CAF AFCON PAMOJA 2027 qualifier groups graphic',
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'CAF UPDATE  •  19 MAY 2026',
+            style: TextStyle(
+              color: _brandMaroon,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .7,
+            ),
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            'The road to East Africa is mapped out',
+            style: TextStyle(
+              color: _ink,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Forty-eight nations are chasing 21 places at the finals. Hosts Kenya, Tanzania and Uganda qualify automatically.',
+            style: TextStyle(color: _muted, fontSize: 12, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 7,
+            runSpacing: 7,
+            children: const [
+              _PamojaFactChip(label: '12 groups'),
+              _PamojaFactChip(label: '24 finalists'),
+              _PamojaFactChip(label: '19 Jun – 17 Jul 2027'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8F0F0),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.calendar_month_rounded,
+                  color: _brandMaroon,
+                  size: 16,
+                ),
+                SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    'Next qualifiers: 9–17 November 2026',
+                    style: TextStyle(
+                      color: _ink,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 7),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: onOpenQualifiers,
+              icon: const Icon(Icons.table_chart_rounded, size: 15),
+              label: const Text('View qualifiers'),
+              style: TextButton.styleFrom(
+                foregroundColor: _brandMaroon,
+                textStyle: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ),
+        ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _EventsPlaceholder extends StatelessWidget {
-  const _EventsPlaceholder();
+class _PamojaFactChip extends StatelessWidget {
+  const _PamojaFactChip({required this.label});
+
+  final String label;
 
   @override
-  Widget build(BuildContext context) {
-    return _SurfaceCard(
-      child: Row(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: const Color(0xFFEAF5EF),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(Icons.location_city_rounded, color: _green),
-          ),
-          const SizedBox(width: 13),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Discover regional events',
-                  style: TextStyle(
-                    color: _ink,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Official activities and locations will be listed here.',
-                  style: TextStyle(color: _muted, fontSize: 12, height: 1.35),
-                ),
-              ],
-            ),
-          ),
-          const Icon(Icons.chevron_right_rounded, color: _muted),
-        ],
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF5F5F5),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(
+      label,
+      style: const TextStyle(
+        color: _ink,
+        fontSize: 10,
+        fontWeight: FontWeight.w700,
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _TranslationCard extends StatefulWidget {
@@ -981,8 +1238,45 @@ class _TranslationCard extends StatefulWidget {
 }
 
 class _TranslationCardState extends State<_TranslationCard> {
+  final _api = AfconApi();
   bool _captionsEnabled = false;
   String _captionLanguage = 'Luganda';
+  bool _startingTranslation = false;
+  String? _translationStatus;
+
+  Future<void> _setCaptionsEnabled(bool enabled) async {
+    setState(() {
+      _captionsEnabled = enabled;
+      _translationStatus = enabled ? 'Connecting to live translation…' : null;
+      _startingTranslation = enabled;
+    });
+    if (!enabled) return;
+    final languageCode = switch (_captionLanguage) {
+      'Luganda' => 'lg',
+      'Swahili' => 'sw',
+      'French' => 'fr',
+      _ => 'lg',
+    };
+    try {
+      await _api.createTranslationSession(targetLanguage: languageCode);
+      if (!mounted) return;
+      setState(() => _translationStatus = 'Translation session ready.');
+    } on AfconApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _translationStatus = error.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _translationStatus = 'Could not reach the AFCON backend.');
+    } finally {
+      if (mounted) setState(() => _startingTranslation = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _api.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -999,7 +1293,10 @@ class _TranslationCardState extends State<_TranslationCard> {
                   color: const Color(0xFFFFF4D9),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.graphic_eq_rounded, color: _green),
+                child: const Icon(
+                  Icons.graphic_eq_rounded,
+                  color: _brandMaroon,
+                ),
               ),
               const SizedBox(width: 10),
               const Expanded(
@@ -1007,7 +1304,7 @@ class _TranslationCardState extends State<_TranslationCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Live language captions',
+                      'Live voice translation',
                       style: TextStyle(
                         color: _ink,
                         fontSize: 14,
@@ -1016,7 +1313,7 @@ class _TranslationCardState extends State<_TranslationCard> {
                     ),
                     SizedBox(height: 3),
                     Text(
-                      'Follow spoken content in your language',
+                      'Listen to English speech in your language',
                       style: TextStyle(color: _muted, fontSize: 11),
                     ),
                   ],
@@ -1024,17 +1321,20 @@ class _TranslationCardState extends State<_TranslationCard> {
               ),
               Switch.adaptive(
                 value: _captionsEnabled,
-                activeTrackColor: _green,
-                onChanged: (value) => setState(() => _captionsEnabled = value),
+                activeTrackColor: _brandMaroon,
+                onChanged: _setCaptionsEnabled,
               ),
             ],
           ),
           if (_captionsEnabled) ...[
             const SizedBox(height: 14),
-            const _StatusPill(
-              label: 'Preview only · No live audio connected',
-              color: Color(0xFFFFF5DD),
-              textColor: Color(0xFF805700),
+            _StatusPill(
+              label: _startingTranslation
+                  ? 'Connecting to translation service'
+                  : _translationStatus ??
+                        'Live audio translation is not connected',
+              color: const Color(0xFFFFF5DD),
+              textColor: const Color(0xFF805700),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
@@ -1055,7 +1355,10 @@ class _TranslationCardState extends State<_TranslationCard> {
                 DropdownMenuItem(value: 'French', child: Text('French')),
               ],
               onChanged: (value) {
-                if (value != null) setState(() => _captionLanguage = value);
+                if (value != null) {
+                  setState(() => _captionLanguage = value);
+                  if (_captionsEnabled) _setCaptionsEnabled(true);
+                }
               },
             ),
             const SizedBox(height: 12),
@@ -1067,7 +1370,7 @@ class _TranslationCardState extends State<_TranslationCard> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'Sample caption in $_captionLanguage will appear here when an approved audio feed is connected.',
+                'Translated transcript and spoken $_captionLanguage audio will appear here when speech services are connected.',
                 style: const TextStyle(color: _ink, fontSize: 12, height: 1.5),
               ),
             ),
@@ -1152,7 +1455,7 @@ class _QuickLink extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 18, color: _green),
+              Icon(icon, size: 18, color: _brandMaroon),
               const SizedBox(width: 8),
               Text(
                 label,
@@ -1166,69 +1469,6 @@ class _QuickLink extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _InfoPage extends StatelessWidget {
-  const _InfoPage({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.detail,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final String detail;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: _ink,
-            fontSize: 25,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          subtitle,
-          style: const TextStyle(color: _muted, fontSize: 14, height: 1.4),
-        ),
-        const SizedBox(height: 20),
-        _SurfaceCard(
-          child: Column(
-            children: [
-              _EmptyIcon(icon: icon),
-              const SizedBox(height: 14),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: _ink,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                detail,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: _muted,
-                  fontSize: 13,
-                  height: 1.5,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1304,7 +1544,7 @@ class _SettingsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: _green, size: 21),
+        Icon(icon, color: _brandMaroon, size: 21),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -1354,25 +1594,6 @@ class _SurfaceCard extends StatelessWidget {
         ],
       ),
       child: child,
-    );
-  }
-}
-
-class _EmptyIcon extends StatelessWidget {
-  const _EmptyIcon({required this.icon});
-
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 52,
-      height: 52,
-      decoration: BoxDecoration(
-        color: const Color(0xFFEAF5EF),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Icon(icon, color: _green, size: 26),
     );
   }
 }
