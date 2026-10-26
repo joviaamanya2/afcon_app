@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../data/pamoja_match_data.dart';
 import '../services/afcon_api.dart';
 
 /// Match centre for fixtures, live coverage, results, groups and venue data.
@@ -123,6 +125,7 @@ class _MatchesScreenState extends State<MatchesScreen>
         children: [
           if (_tabs[_tabController.index] != 'Qualifiers')
             _DateSelector(
+              key: const Key('match-date-selector'),
               date: _selectedDate,
               onPrevious: () => _shiftDate(-1),
               onNext: () => _shiftDate(1),
@@ -134,6 +137,9 @@ class _MatchesScreenState extends State<MatchesScreen>
               children: _tabs.map((category) {
                 if (category == 'Qualifiers') {
                   return const _QualifiersContent();
+                }
+                if (category == 'Groups') {
+                  return const _OfficialGroupsContent();
                 }
                 if (category == 'Stats') {
                   return const _MatchDataScreen(
@@ -153,6 +159,7 @@ class _MatchesScreenState extends State<MatchesScreen>
 
 class _DateSelector extends StatelessWidget {
   const _DateSelector({
+    super.key,
     required this.date,
     required this.onPrevious,
     required this.onNext,
@@ -212,87 +219,122 @@ class _DateSelector extends StatelessWidget {
   }
 }
 
-class _QualifiersContent extends StatelessWidget {
+class _QualifiersContent extends StatefulWidget {
   const _QualifiersContent();
 
   @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
-      children: [
-        const Text(
-          'AFCON PAMOJA 2027 qualifiers',
-          style: TextStyle(
-            color: Color(0xFF1E1E1E),
-            fontSize: 21,
-            fontWeight: FontWeight.w900,
+  State<_QualifiersContent> createState() => _QualifiersContentState();
+}
+
+class _QualifiersContentState extends State<_QualifiersContent> {
+  final _api = AfconApi();
+  late final Future<Map<String, dynamic>> _qualifiers = _api.qualifiers();
+
+  @override
+  void dispose() {
+    _api.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: _qualifiers,
+    builder: (context, snapshot) {
+      final data = snapshot.data ?? const <String, dynamic>{};
+      final tournament = data['tournament'] is Map
+          ? (data['tournament'] as Map)['label']?.toString()
+          : null;
+      final hosts = data['hostCountries'] is List
+          ? (data['hostCountries'] as List).join(' / ')
+          : 'Kenya / Tanzania / Uganda';
+
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
+        children: [
+          const Text(
+            'AFCON PAMOJA 2027 qualifiers',
+            style: TextStyle(
+              color: Color(0xFF1E1E1E),
+              fontSize: 21,
+              fontWeight: FontWeight.w900,
+            ),
           ),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'Explore the draw pots, qualifying groups and key dates on the road to East Africa.',
-          style: TextStyle(
-            color: Color(0xFF666666),
-            fontSize: 13,
-            height: 1.45,
+          const SizedBox(height: 6),
+          const Text(
+            'Explore the draw pots, qualifying groups and key dates on the road to East Africa.',
+            style: TextStyle(
+              color: Color(0xFF666666),
+              fontSize: 13,
+              height: 1.45,
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
-        const Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _QualifierFact(label: '12 groups'),
-            _QualifierFact(label: '24 finalists'),
-            _QualifierFact(label: 'Kenya · Tanzania · Uganda host'),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _QualifierGraphic(
-          title: 'Official draw pots',
-          subtitle: 'The teams were placed into four draw pots.',
-          asset: 'assets/images/new images/home screen images/afcon-draw-q-potsjpg.webp',
-        ),
-        _QualifierGraphic(
-          title: 'Qualifying groups',
-          subtitle: 'See all groups A to L and the teams in each group.',
-          asset: 'assets/images/new images/home screen images/afcon_pamoja_q.webp',
-        ),
-        Container(
-          margin: const EdgeInsets.only(top: 2),
-          padding: const EdgeInsets.all(15),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE6E8EB)),
-          ),
-          child: const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Text(
-                'Key dates',
-                style: TextStyle(
-                  color: Color(0xFF1E1E1E),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              SizedBox(height: 10),
-              _QualifierDateRow(
-                label: 'Next qualifying window',
-                date: '9–17 November 2026',
-              ),
-              SizedBox(height: 9),
-              _QualifierDateRow(
-                label: 'Final tournament',
-                date: '19 June–17 July 2027',
-              ),
+              _QualifierFact(label: '${data['groupCount'] ?? 12} groups'),
+              _QualifierFact(label: '${data['finalistCount'] ?? 24} finalists'),
+              _QualifierFact(label: '$hosts host'),
             ],
           ),
-        ),
-      ],
-    );
-  }
+          const SizedBox(height: 16),
+          const _QualifierGraphic(
+            title: 'Official draw pots',
+            subtitle: 'The teams were placed into four draw pots.',
+            asset: 'assets/images/new images/home screen images/afcon-draw-q-potsjpg.webp',
+          ),
+          const _QualifierGraphic(
+            title: 'Qualifying groups',
+            subtitle: 'The official draw places 48 teams into 12 groups.',
+            asset: 'assets/images/new images/home screen images/afcon_pamoja_q.webp',
+          ),
+          Container(
+            margin: const EdgeInsets.only(top: 2),
+            padding: const EdgeInsets.all(15),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE6E8EB)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'CAF qualifying windows',
+                  style: TextStyle(
+                    color: Color(0xFF1E1E1E),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                for (final window in pamojaQualifierWindows) ...[
+                  _QualifierDateRow(
+                    label: window.matchdays,
+                    date: window.dates,
+                  ),
+                  if (window != pamojaQualifierWindows.last)
+                    const SizedBox(height: 9),
+                ],
+                const SizedBox(height: 9),
+                _QualifierDateRow(
+                  label: 'Final tournament',
+                  date: tournament ?? '19 June-17 July 2027',
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          const _QualificationRulesCard(),
+          const SizedBox(height: 10),
+          const _SourceAttribution(
+            source: 'Source: CAF official qualifying draw and schedule.',
+          ),
+        ],
+      );
+    },
+  );
 }
 
 class _QualifierFact extends StatelessWidget {
@@ -490,7 +532,7 @@ class _MatchListState extends State<_MatchList> {
       _matches = _api.venues();
       return;
     }
-    if (widget.category == 'Groups' || widget.category == 'Standings') {
+    if (widget.category == 'Standings') {
       _matches = _loadStandings();
       return;
     }
@@ -520,49 +562,9 @@ class _MatchListState extends State<_MatchList> {
     super.dispose();
   }
 
-  static const _details = <String, (IconData, String, String)>{
-    'All': (
-      Icons.sports_soccer_rounded,
-      'No published matches yet',
-      'Add and publish fixtures in the dashboard to show them here.',
-    ),
-    'Live': (
-      Icons.sensors_rounded,
-      'No live matches',
-      'Live scores, match time, key events and statistics will appear here.',
-    ),
-    'Fixtures': (
-      Icons.event_available_rounded,
-      'No published fixtures yet',
-      'Published match schedules will appear here with their kick-off and venue details.',
-    ),
-    'Results': (
-      Icons.sports_score_rounded,
-      'No results for this date',
-      'Final scores, scorers, cards and match reports will appear here.',
-    ),
-    'Groups': (
-      Icons.grid_view_rounded,
-      'Group details coming soon',
-      'Teams, fixtures and group progress will be available here.',
-    ),
-    'Standings': (
-      Icons.leaderboard_rounded,
-      'No published standings yet',
-      'Publish a competition table from the dashboard to see group positions and points.',
-    ),
-    'Venues': (
-      Icons.stadium_rounded,
-      'No published venues yet',
-      'Published stadium locations and access details will appear here.',
-    ),
-  };
-
   @override
   Widget build(BuildContext context) {
     final category = widget.category;
-    final date = widget.date;
-    final info = _details[category]!;
     return ListView(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
       children: [
@@ -576,22 +578,30 @@ class _MatchListState extends State<_MatchList> {
               );
             }
             if (snapshot.hasError) {
-              return const _MatchStatusMessage(
-                icon: Icons.cloud_off_rounded,
-                title: 'Match data is unavailable',
-                message:
-                    'Check the API and database connection, then try again.',
-              );
+              if (category == 'Live') return const _LiveMatchContent();
+              if (category == 'All') return const _AllMatchCentreContent();
+              return _OfficialDataPreview(category: category);
             }
             final records = snapshot.data ?? const <Map<String, dynamic>>[];
-            if (records.isEmpty) return const SizedBox.shrink();
+            if (category == 'Live') {
+              return _LiveMatchContent(records: records);
+            }
+            if (category == 'All') {
+              return _AllMatchCentreContent(records: records);
+            }
+            if (records.isEmpty) {
+              return _OfficialDataPreview(category: category);
+            }
             if (category == 'Venues') {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Column(
-                  children: records
-                      .map((record) => _BackendVenueCard(record: record))
-                      .toList(),
+                  children: [
+                    const _OfficialVenuePreview(),
+                    const SizedBox(height: 10),
+                    for (final record in records)
+                      _BackendVenueCard(record: record),
+                  ],
                 ),
               );
             }
@@ -615,120 +625,973 @@ class _MatchListState extends State<_MatchList> {
             );
           },
         ),
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFE6EBE7)),
+      ],
+    );
+  }
+}
+
+class _OfficialGroupsContent extends StatelessWidget {
+  const _OfficialGroupsContent();
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
+    children: [
+      const Text(
+        'PAMOJA 2027 qualifying groups',
+        style: TextStyle(
+          color: Color(0xFF1E1E1E),
+          fontSize: 21,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      const SizedBox(height: 5),
+      const Text(
+        'CAF’s published draw: 48 teams across 12 groups. Host nations Kenya, Uganda and Tanzania are already qualified.',
+        style: TextStyle(color: Color(0xFF666666), fontSize: 13, height: 1.45),
+      ),
+      const SizedBox(height: 14),
+      for (final group in pamojaGroups) _OfficialGroupCard(group: group),
+      const SizedBox(height: 4),
+      const _QualificationRulesCard(),
+      const SizedBox(height: 10),
+      const _SourceAttribution(
+        source: 'Source: CAF official PAMOJA 2027 qualifier draw.',
+      ),
+    ],
+  );
+}
+
+class _AllMatchCentreContent extends StatelessWidget {
+  const _AllMatchCentreContent({this.records = const []});
+
+  final List<Map<String, dynamic>> records;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _MatchCentreSectionTitle('Live video'),
+        const SizedBox(height: 9),
+        const _LiveVideoCard(),
+        if (records.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          const _MatchCentreSectionTitle('Fixtures and results'),
+          const SizedBox(height: 9),
+          for (final record in records) _BackendMatchCard(record: record),
+        ],
+        const SizedBox(height: 20),
+        const _MatchCentreSectionTitle('PAMOJA qualifying calendar'),
+        const SizedBox(height: 9),
+        for (final window in pamojaQualifierWindows)
+          _QualifierWindowCard(window: window),
+        const _SourceAttribution(
+          source: 'Qualifying schedule: CAF official announcement.',
+        ),
+        const SizedBox(height: 14),
+        const _MatchCentreSectionTitle('Qualifiers'),
+        const SizedBox(height: 3),
+        const _QualifierGraphic(
+          title: 'Official draw pots',
+          subtitle: 'The 48 teams were placed into four draw pots.',
+          asset: 'assets/images/new images/home screen images/afcon-draw-q-potsjpg.webp',
+        ),
+        const _QualifierGraphic(
+          title: 'Qualifying groups',
+          subtitle: 'All 12 groups on the road to PAMOJA 2027.',
+          asset:
+              'assets/images/new images/home screen images/afcon_pamoja_q.webp',
+        ),
+        const SizedBox(height: 4),
+        const _MatchCentreSectionTitle('Groups A–L'),
+        const SizedBox(height: 9),
+        for (final group in pamojaGroups) _OfficialGroupCard(group: group),
+        const SizedBox(height: 4),
+        const _MatchCentreSectionTitle('Results and standings'),
+        const SizedBox(height: 9),
+        const _QualificationRulesCard(),
+        const SizedBox(height: 18),
+        const _MatchCentreSectionTitle('Host stadiums'),
+        const SizedBox(height: 9),
+        const _OfficialVenuePreview(),
+        const SizedBox(height: 18),
+        const _MatchCentreSectionTitle('Stats and tournament format'),
+        const SizedBox(height: 9),
+        const _TournamentOverview(),
+      ],
+    ),
+  );
+}
+
+class _MatchCentreSectionTitle extends StatelessWidget {
+  const _MatchCentreSectionTitle(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    title,
+    style: const TextStyle(
+      color: Color(0xFF1E1E1E),
+      fontSize: 17,
+      fontWeight: FontWeight.w800,
+    ),
+  );
+}
+
+class _LiveMatchContent extends StatelessWidget {
+  const _LiveMatchContent({this.records = const []});
+
+  final List<Map<String, dynamic>> records;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _LiveVideoCard(),
+        const SizedBox(height: 18),
+        if (records.isEmpty) ...[
+          const _SampleLineupPreview(),
+        ] else ...[
+          const Text(
+            'Live match line-ups',
+            style: TextStyle(
+              color: Color(0xFF1E1E1E),
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 10),
+          for (final record in records) ...[
+            _BackendMatchCard(record: record),
+            _MatchLineupPanel(record: record),
+            const SizedBox(height: 12),
+          ],
+        ],
+      ],
+    ),
+  );
+}
+
+class _LineupPlayer {
+  const _LineupPlayer(this.name, this.position, this.number);
+
+  final String name;
+  final String position;
+  final String number;
+}
+
+class _SampleLineupPreview extends StatelessWidget {
+  const _SampleLineupPreview();
+
+  static const _ghana = [
+    _LineupPlayer('Mohammed Kudus', 'Midfielder', '20'),
+    _LineupPlayer('Thomas Partey', 'Midfielder', '5'),
+    _LineupPlayer('Jordan Ayew', 'Forward', '9'),
+  ];
+  static const _uganda = [
+    _LineupPlayer('Denis Onyango', 'Goalkeeper', '18'),
+    _LineupPlayer('Khalid Aucho', 'Midfielder', '8'),
+    _LineupPlayer('Rogers Mato', 'Forward', '17'),
+  ];
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const Text(
+        'Line-up preview',
+        key: Key('live-lineup-preview'),
+        style: TextStyle(
+          color: Color(0xFF1E1E1E),
+          fontSize: 18,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      const SizedBox(height: 4),
+      const Text(
+        'Ghana vs Uganda · Sample player preview only; this is not a confirmed fixture or official starting line-up.',
+        style: TextStyle(color: Color(0xFF66716B), fontSize: 11, height: 1.45),
+      ),
+      const SizedBox(height: 10),
+      _LineupTeamCard(team: 'Ghana', players: _ghana),
+      const SizedBox(height: 8),
+      _LineupTeamCard(team: 'Uganda', players: _uganda),
+    ],
+  );
+}
+
+class _LineupTeamCard extends StatelessWidget {
+  const _LineupTeamCard({required this.team, required this.players});
+
+  final String team;
+  final List<_LineupPlayer> players;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: const Color(0xFFE6EBE7)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          team,
+          style: const TextStyle(
+            color: Color(0xFF176B46),
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 6),
+        for (final player in players)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 26,
+                  child: Text(
+                    player.number,
+                    style: const TextStyle(
+                      color: Color(0xFF66716B),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    player.name,
+                    style: const TextStyle(
+                      color: Color(0xFF1E1E1E),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Text(
+                  player.position,
+                  style: const TextStyle(
+                    color: Color(0xFF66716B),
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
+class _MatchLineupPanel extends StatefulWidget {
+  const _MatchLineupPanel({required this.record});
+
+  final Map<String, dynamic> record;
+
+  @override
+  State<_MatchLineupPanel> createState() => _MatchLineupPanelState();
+}
+
+class _MatchLineupPanelState extends State<_MatchLineupPanel> {
+  final _api = AfconApi();
+  late final Future<List<Map<String, dynamic>>> _lineups = _api.lineups(
+    matchId: '${widget.record['id']}',
+  );
+
+  @override
+  void dispose() {
+    _api.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      FutureBuilder<List<Map<String, dynamic>>>(
+        future: _lineups,
+        builder: (context, snapshot) {
+          final rows = snapshot.data ?? const <Map<String, dynamic>>[];
+          if (rows.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 5),
+              child: Text(
+                'Confirmed line-ups will appear here when available.',
+                style: TextStyle(color: Color(0xFF66716B), fontSize: 11),
+              ),
+            );
+          }
+
+          final home = '${widget.record['home_team'] ?? 'Home'}';
+          final away = '${widget.record['away_team'] ?? 'Away'}';
+          final homeId = '${widget.record['home_team_id'] ?? ''}';
+          final awayId = '${widget.record['away_team_id'] ?? ''}';
+          final homeRows = rows
+              .where(
+                (row) =>
+                    row['team_name'] == home ||
+                    (homeId.isNotEmpty && '${row['team_id']}' == homeId),
+              )
+              .toList();
+          final awayRows = rows
+              .where(
+                (row) =>
+                    row['team_name'] == away ||
+                    (awayId.isNotEmpty && '${row['team_id']}' == awayId),
+              )
+              .toList();
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
+              Text(
+                'Line-up · $home vs $away',
+                style: const TextStyle(
+                  color: Color(0xFF1E1E1E),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _PublishedLineupTeam(name: home, players: homeRows),
+              const SizedBox(height: 8),
+              _PublishedLineupTeam(name: away, players: awayRows),
+            ],
+          );
+        },
+      );
+}
+
+class _PublishedLineupTeam extends StatelessWidget {
+  const _PublishedLineupTeam({
+    required this.name,
+    required this.players,
+    this.emptyMessage = 'Confirmed line-up will appear here when published.',
+  });
+
+  final String name;
+  final List<Map<String, dynamic>> players;
+  final String emptyMessage;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: const Color(0xFFE6EBE7)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          name,
+          style: const TextStyle(
+            color: Color(0xFF176B46),
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 6),
+        if (players.isEmpty)
+          Text(
+            emptyMessage,
+            style: const TextStyle(color: Color(0xFF66716B), fontSize: 11),
+          )
+        else
+          for (final player in players)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
                 children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF5E6E6),
-                      borderRadius: BorderRadius.circular(13),
+                  SizedBox(
+                    width: 26,
+                    child: Text(
+                      '${player['shirt_number'] ?? '—'}',
+                      style: const TextStyle(
+                        color: Color(0xFF66716B),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                    child: Icon(info.$1, color: const Color(0xFF800000)),
                   ),
-                  const SizedBox(width: 12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          category == 'All' ? 'AFCON matchday' : category,
-                          style: const TextStyle(
-                            color: Color(0xFF1E1E1E),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          '${date.day} ${_month(date.month)} ${date.year}',
-                          style: const TextStyle(
-                            color: Color(0xFF666666),
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      '${player['player_name'] ?? 'Player'}',
+                      style: const TextStyle(
+                        color: Color(0xFF1E1E1E),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                  const Icon(
-                    Icons.tune_rounded,
-                    color: Color(0xFF666666),
-                    size: 20,
+                  Text(
+                    '${player['position'] ?? 'Position TBC'}',
+                    style: const TextStyle(
+                      color: Color(0xFF66716B),
+                      fontSize: 10,
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 21),
-              Center(
-                child: Icon(info.$1, color: const Color(0xFF800000), size: 35),
-              ),
-              const SizedBox(height: 11),
-              Center(
-                child: Text(
-                  info.$2,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xFF1E1E1E),
+            ),
+      ],
+    ),
+  );
+}
+
+class _LiveVideoCard extends StatelessWidget {
+  const _LiveVideoCard();
+
+  static const _videoUrl = 'https://www.youtube.com/watch?v=chuhAI45g70';
+
+  Future<void> _playVideo(BuildContext context) async {
+    final opened = await launchUrl(
+      Uri.parse(_videoUrl),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open this video.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Material(
+    key: const Key('match-live-video-card'),
+    color: const Color(0xFF18231D),
+    borderRadius: BorderRadius.circular(14),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: () => _playVideo(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Stack(
+              fit: StackFit.expand,
+              alignment: Alignment.center,
+              children: [
+                Image.asset(
+                  'assets/images/new images/home screen images/Cafcon.webp',
+                  fit: BoxFit.cover,
+                ),
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0x22000000), Color(0xAA000000)],
+                    ),
+                  ),
+                ),
+                const Center(
+                  child: CircleAvatar(
+                    radius: 27,
+                    backgroundColor: Colors.white,
+                    child: Icon(
+                      Icons.play_arrow_rounded,
+                      color: Color(0xFF176B46),
+                      size: 38,
+                    ),
+                  ),
+                ),
+                const Positioned(left: 12, top: 12, child: _VideoBadge()),
+                const Positioned(
+                  right: 12,
+                  bottom: 11,
+                  child: Text(
+                    'CAF TV',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(14, 12, 14, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'AFCON Final Highlights',
+                  style: TextStyle(
+                    color: Colors.white,
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Center(
-                child: Text(
-                  info.$3,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xFF666666),
-                    fontSize: 12,
-                    height: 1.5,
+                SizedBox(height: 4),
+                Text(
+                  'Senegal vs Morocco · AFCON 2025 final',
+                  style: TextStyle(color: Colors.white70, fontSize: 11),
+                ),
+                SizedBox(height: 7),
+                Text(
+                  'Watch the key moments from the final. This is a past-match replay, not a live fixture.',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    height: 1.45,
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(11),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF7F7F7),
-                  borderRadius: BorderRadius.circular(12),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _VideoBadge extends StatelessWidget {
+  const _VideoBadge();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+    decoration: BoxDecoration(
+      color: const Color(0xFF176B46),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: const Text(
+      'HIGHLIGHTS',
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: 9,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 0.7,
+      ),
+    ),
+  );
+}
+
+class _OfficialGroupCard extends StatelessWidget {
+  const _OfficialGroupCard({required this.group});
+
+  final PamojaGroup group;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.all(13),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: const Color(0xFFE6EBE7)),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 54,
+          height: 34,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: const Color(0xFFEAF3ED),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            'Group ${group.code}',
+            style: const TextStyle(
+              color: Color(0xFF176B46),
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final team in group.teams)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF6F7F6),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    team,
+                    style: const TextStyle(
+                      color: Color(0xFF303A34),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-                child: const Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.verified_outlined,
-                      color: Color(0xFF800000),
-                      size: 17,
-                    ),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'This screen displays published backend records. Add verified tournament information in the admin dashboard before publishing it to fans.',
-                        style: TextStyle(
-                          color: Color(0xFF666666),
-                          fontSize: 11,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  ],
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _QualificationRulesCard extends StatelessWidget {
+  const _QualificationRulesCard();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: const Color(0xFFE6EBE7)),
+    ),
+    child: const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Qualification format',
+          style: TextStyle(
+            color: Color(0xFF1E1E1E),
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        SizedBox(height: 7),
+        Text(
+          'Teams play home and away across six matchdays. Normally, the top two in each group qualify. In Groups D, H and L, only the highest-ranked non-host qualifies because Kenya, Uganda and Tanzania qualify automatically as hosts.',
+          style: TextStyle(color: Color(0xFF5D6962), fontSize: 12, height: 1.5),
+        ),
+      ],
+    ),
+  );
+}
+
+class _SourceAttribution extends StatelessWidget {
+  const _SourceAttribution({required this.source});
+
+  final String source;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Text(
+      source,
+      style: const TextStyle(color: Color(0xFF66716B), fontSize: 11),
+    ),
+  );
+}
+
+class _OfficialDataPreview extends StatelessWidget {
+  const _OfficialDataPreview({required this.category});
+
+  final String category;
+
+  @override
+  Widget build(BuildContext context) {
+    if (category == 'Live') {
+      return const _LiveMatchContent();
+    }
+    if (category == 'Results') {
+      return const Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _QualificationRulesCard(),
+          _SourceAttribution(
+            source:
+                'Competition format: CAF PAMOJA 2027 qualifier announcement.',
+          ),
+        ],
+      );
+    }
+    if (category == 'Standings') {
+      return const Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _QualificationRulesCard(),
+          _SourceAttribution(
+            source: 'Group structure and qualification rules: CAF.',
+          ),
+        ],
+      );
+    }
+    if (category == 'Venues') {
+      return const _OfficialVenuePreview();
+    }
+    if (category != 'All' && category != 'Fixtures') {
+      return const Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _TournamentOverview(),
+          _SourceAttribution(
+            source:
+                'Tournament format: CAF PAMOJA 2027 qualifier announcement.',
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _MatchStatusMessage(
+          icon: Icons.event_note_rounded,
+          title: 'Official qualifying windows',
+          message: 'CAF has published the international windows. These are date ranges, not confirmed individual fixtures.',
+        ),
+        for (final window in pamojaQualifierWindows)
+          _QualifierWindowCard(window: window),
+        const _SourceAttribution(
+          source: 'Schedule source: CAF official qualifier announcement.',
+        ),
+      ],
+    );
+  }
+}
+
+class _QualifierWindowCard extends StatelessWidget {
+  const _QualifierWindowCard({required this.window});
+
+  final PamojaQualifierWindow window;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: const Color(0xFFE6EBE7)),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.calendar_month_rounded, color: Color(0xFF176B46)),
+        const SizedBox(width: 11),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                window.matchdays,
+                style: const TextStyle(
+                  color: Color(0xFF1E1E1E),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                window.dates,
+                style: const TextStyle(color: Color(0xFF66716B), fontSize: 11),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _OfficialVenuePreview extends StatelessWidget {
+  const _OfficialVenuePreview();
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const Text(
+        'Stadiums across the three host countries',
+        style: TextStyle(color: Color(0xFF66716B), fontSize: 12, height: 1.4),
+      ),
+      const SizedBox(height: 10),
+      const _VenueDetailsCard(
+        title: 'Akii-Bua Olympic Stadium',
+        location: 'Lira City, Uganda',
+        detail: 'One of three national stadiums presented to CAF. Planned capacity: 20,000 upon completion.',
+      ),
+      const SizedBox(height: 10),
+      const _VenueImageCard(
+        title: 'Benjamin Mkapa Stadium',
+        location: 'Dar es Salaam, Tanzania',
+        detail: 'Stadium spotlight from a PAMOJA host country. Match allocation details are not shown.',
+        asset: 'assets/images/new images/home screen images/benjamin-mkapa-stadium_ok.webp',
+        imageLabel: 'Benjamin Mkapa Stadium',
+      ),
+      const SizedBox(height: 10),
+      const _VenueImageCard(
+        title: 'Mandela National Stadium',
+        location: 'Kampala, Uganda',
+        detail: 'Stadium spotlight from a PAMOJA host country. Match allocation details are not shown.',
+        asset: 'assets/images/new images/mandela stadium.PNG',
+        imageLabel: 'Mandela National Stadium',
+      ),
+      const _SourceAttribution(
+        source: 'Akii-Bua profile: PAMOJA publication. Other photos are host-country stadium spotlights.',
+      ),
+    ],
+  );
+}
+
+class _VenueDetailsCard extends StatelessWidget {
+  const _VenueDetailsCard({
+    required this.title,
+    required this.location,
+    required this.detail,
+  });
+
+  final String title;
+  final String location;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFFE6EBE7)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: Color(0xFF1E1E1E),
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          location,
+          style: const TextStyle(
+            color: Color(0xFF176B46),
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          detail,
+          style: const TextStyle(
+            color: Color(0xFF66716B),
+            fontSize: 11,
+            height: 1.4,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _VenueImageCard extends StatelessWidget {
+  const _VenueImageCard({
+    required this.title,
+    required this.location,
+    required this.detail,
+    required this.asset,
+    required this.imageLabel,
+  });
+
+  final String title;
+  final String location;
+  final String detail;
+  final String asset;
+  final String imageLabel;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFFE6EBE7)),
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AspectRatio(
+          aspectRatio: 16 / 8,
+          child: Image.asset(
+            asset,
+            fit: BoxFit.cover,
+            semanticLabel: imageLabel,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(13),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Color(0xFF1E1E1E),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                location,
+                style: const TextStyle(
+                  color: Color(0xFF176B46),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                detail,
+                style: const TextStyle(
+                  color: Color(0xFF66716B),
+                  fontSize: 11,
+                  height: 1.4,
                 ),
               ),
             ],
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
+
+class _TournamentOverview extends StatelessWidget {
+  const _TournamentOverview();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: const Color(0xFFE6EBE7)),
+    ),
+    child: const Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _QualifierFact(label: '48 qualifying teams'),
+        _QualifierFact(label: '12 groups'),
+        _QualifierFact(label: '6 matchdays'),
+        _QualifierFact(label: '24 finalists'),
+        _QualifierFact(label: '3 co-hosts'),
+      ],
+    ),
+  );
 }
 
 class _BackendStandingCard extends StatelessWidget {
@@ -872,8 +1735,10 @@ class _MatchStatusMessage extends StatelessWidget {
 }
 
 class _BackendMatchCard extends StatelessWidget {
-  const _BackendMatchCard({required this.record});
+  const _BackendMatchCard({required this.record, this.interactive = true});
+
   final Map<String, dynamic> record;
+  final bool interactive;
 
   @override
   Widget build(BuildContext context) {
@@ -886,77 +1751,207 @@ class _BackendMatchCard extends StatelessWidget {
     final kickoffLabel = kickoff == null
         ? 'Kick-off time TBC'
         : '${_weekday(kickoff.weekday)}, ${kickoff.day} ${_month(kickoff.month)} · ${kickoff.hour.toString().padLeft(2, '0')}:${kickoff.minute.toString().padLeft(2, '0')}';
-    return Container(
-      margin: const EdgeInsets.only(bottom: 9),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: Key('match-card-${record['id']}'),
+        onTap: interactive
+            ? () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => MatchDetailsScreen(record: record),
+                ),
+              )
+            : null,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: const Color(0xFFE6EBE7)),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 9),
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: const Color(0xFFE6EBE7)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${record['competition_name'] ?? 'AFCON'} · ${record['stage'] ?? record['group_code'] ?? ''}',
+                      style: const TextStyle(
+                        color: Color(0xFF666666),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    status.toUpperCase(),
+                    style: TextStyle(
+                      color: status == 'live'
+                          ? const Color(0xFFCC3E32)
+                          : const Color(0xFF800000),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${record['home_team'] ?? 'Home'}',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    hasScore ? '$homeScore  -  $awayScore' : 'VS',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF800000),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      '${record['away_team'] ?? 'Away'}',
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 9),
+              Text(
+                '$kickoffLabel${record['venue_name'] == null ? '' : ' · ${record['venue_name']}'}',
+                style: const TextStyle(color: Color(0xFF666666), fontSize: 11),
+              ),
+            ],
+          ),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+}
+
+class MatchDetailsScreen extends StatefulWidget {
+  const MatchDetailsScreen({super.key, required this.record});
+
+  final Map<String, dynamic> record;
+
+  @override
+  State<MatchDetailsScreen> createState() => _MatchDetailsScreenState();
+}
+
+class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
+  final _api = AfconApi();
+  late final Future<List<Map<String, dynamic>>> _lineups = _api.lineups(
+    matchId: '${widget.record['id']}',
+  );
+
+  @override
+  void dispose() {
+    _api.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final record = widget.record;
+    final home = '${record['home_team'] ?? 'Home'}';
+    final away = '${record['away_team'] ?? 'Away'}';
+    final kickoff = DateTime.tryParse('${record['kickoff_at'] ?? ''}')
+        ?.toLocal();
+    final kickoffLabel = kickoff == null
+        ? 'Kick-off time to be confirmed'
+        : '${_weekday(kickoff.weekday)}, ${kickoff.day} ${_month(kickoff.month)} · ${kickoff.hour.toString().padLeft(2, '0')}:${kickoff.minute.toString().padLeft(2, '0')}';
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F7F7),
+      appBar: AppBar(
+        title: const Text('Match details'),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${record['competition_name'] ?? 'AFCON'} · ${record['stage'] ?? record['group_code'] ?? ''}',
-                  style: const TextStyle(
-                    color: Color(0xFF666666),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Text(
-                status.toUpperCase(),
-                style: TextStyle(
-                  color: status == 'live'
-                      ? const Color(0xFFCC3E32)
-                      : const Color(0xFF800000),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
+          _BackendMatchCard(record: record, interactive: false),
+          const SizedBox(height: 8),
+          Text(
+            '${record['competition_name'] ?? 'AFCON'} · ${record['stage'] ?? record['group_code'] ?? 'Match'}',
+            style: const TextStyle(
+              color: Color(0xFF66716B),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${record['home_team'] ?? 'Home'}',
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              Text(
-                hasScore ? '$homeScore  -  $awayScore' : 'VS',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF800000),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  '${record['away_team'] ?? 'Away'}',
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 9),
+          const SizedBox(height: 4),
           Text(
             '$kickoffLabel${record['venue_name'] == null ? '' : ' · ${record['venue_name']}'}',
-            style: const TextStyle(color: Color(0xFF666666), fontSize: 11),
+            style: const TextStyle(color: Color(0xFF66716B), fontSize: 11),
+          ),
+          const SizedBox(height: 22),
+          Text(
+            'Line-up · $home vs $away',
+            style: const TextStyle(
+              color: Color(0xFF1E1E1E),
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 10),
+          FutureBuilder<List<Map<String, dynamic>>>(
+            future: _lineups,
+            builder: (context, snapshot) {
+              final rows = snapshot.data ?? const <Map<String, dynamic>>[];
+              final homeId = '${record['home_team_id'] ?? ''}';
+              final awayId = '${record['away_team_id'] ?? ''}';
+              final homeRows = rows
+                  .where(
+                    (row) =>
+                        row['team_name'] == home ||
+                        (homeId.isNotEmpty && '${row['team_id']}' == homeId),
+                  )
+                  .toList();
+              final awayRows = rows
+                  .where(
+                    (row) =>
+                        row['team_name'] == away ||
+                        (awayId.isNotEmpty && '${row['team_id']}' == awayId),
+                  )
+                  .toList();
+              return Column(
+                children: [
+                  _PublishedLineupTeam(
+                    name: home,
+                    players: homeRows,
+                    emptyMessage:
+                        snapshot.connectionState == ConnectionState.waiting
+                        ? 'Loading confirmed line-up…'
+                        : 'Confirmed line-up will appear here when published.',
+                  ),
+                  const SizedBox(height: 10),
+                  _PublishedLineupTeam(
+                    name: away,
+                    players: awayRows,
+                    emptyMessage:
+                        snapshot.connectionState == ConnectionState.waiting
+                        ? 'Loading confirmed line-up…'
+                        : 'Confirmed line-up will appear here when published.',
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -1012,19 +2007,9 @@ class _MatchDataScreenState extends State<_MatchDataScreen> {
             child: CircularProgressIndicator(),
           ),
         );
-      if (snapshot.hasError)
-        return const Text(
-          'Match details are unavailable. Check the API connection.',
-          style: TextStyle(color: Color(0xFF666666)),
-        );
+      if (snapshot.hasError) return const _TournamentOverview();
       final rows = snapshot.data ?? const <Map<String, dynamic>>[];
-      if (rows.isEmpty)
-        return Text(
-          lineups
-              ? 'No published line-up data for this match.'
-              : 'No published match events for this match.',
-          style: const TextStyle(color: Color(0xFF666666), fontSize: 12),
-        );
+      if (rows.isEmpty) return const _TournamentOverview();
       return Column(
         children: rows.map((row) {
           final title = lineups
@@ -1076,17 +2061,31 @@ class _MatchDataScreenState extends State<_MatchDataScreen> {
                   ),
                 );
               if (snapshot.hasError)
-                return const _MatchStatusMessage(
-                  icon: Icons.cloud_off_rounded,
-                  title: 'Match service unavailable',
-                  message: 'Check that the AFCON API and database are running.',
+                return const Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _TournamentOverview(),
+                    SizedBox(height: 8),
+                    _QualificationRulesCard(),
+                    _SourceAttribution(
+                      source:
+                          'Tournament format: CAF PAMOJA 2027 announcement.',
+                    ),
+                  ],
                 );
               final matches = snapshot.data ?? const <Map<String, dynamic>>[];
               if (matches.isEmpty)
-                return const _MatchStatusMessage(
-                  icon: Icons.sports_soccer_rounded,
-                  title: 'No published matches yet',
-                  message: 'Add and publish a fixture in the dashboard to see match events and line-ups here.',
+                return const Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _TournamentOverview(),
+                    SizedBox(height: 8),
+                    _QualificationRulesCard(),
+                    _SourceAttribution(
+                      source:
+                          'Tournament format: CAF PAMOJA 2027 announcement.',
+                    ),
+                  ],
                 );
               final matchId = _selectedMatchId ?? '${matches.first['id']}';
               final selected = matches
@@ -1174,17 +2173,9 @@ class _MatchDataScreenState extends State<_MatchDataScreen> {
     builder: (context, snapshot) {
       if (snapshot.connectionState == ConnectionState.waiting)
         return const Center(child: CircularProgressIndicator());
-      if (snapshot.hasError)
-        return const Text(
-          'Statistics are unavailable.',
-          style: TextStyle(color: Color(0xFF666666), fontSize: 12),
-        );
+      if (snapshot.hasError) return const _TournamentOverview();
       final rows = snapshot.data ?? const <Map<String, dynamic>>[];
-      if (rows.isEmpty)
-        return const Text(
-          'No published statistics for this match.',
-          style: TextStyle(color: Color(0xFF666666), fontSize: 12),
-        );
+      if (rows.isEmpty) return const _TournamentOverview();
       return Column(
         children: rows
             .map(

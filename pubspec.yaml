@@ -12,6 +12,8 @@ dependencies:
   image_picker: ^1.2.4
   video_player: ^2.14.1
   http: ^1.6.0
+  url_launcher: ^6.3.3
+  share_plus: ^13.3.1
 
 dev_dependencies:
   flutter_test:
@@ -26,8 +28,10 @@ flutter:
     - assets/images/afcon_app_icon_master.png
     - assets/images/afcon_logo_clean.png
     - assets/images/official_partner_clean.png
+    - assets/images/sponsor_supplier_partner_logos/
     - 'assets/images/new images/logo.jpeg'
     - 'assets/images/official partner.png'
+    - 'assets/images/new images/mandela stadium.PNG'
     - 'assets/images/new images/home screen images/afcon_pamoja_q.webp'
     - 'assets/images/new images/home screen images/afcon-draw-q-potsjpg.webp'
     - 'assets/images/new images/home screen images/amad-diallo-of-cote-ivoire-is-challenged-by-darlin-yongwa-ngameni-of-cameroon.webp'

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../data/pamoja_match_data.dart';
 import '../services/afcon_api.dart';
+import 'teams_players_screen.dart' show PlayerProfileScreen;
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -233,16 +235,8 @@ class _ExploreScreenState extends State<ExploreScreen>
                   season: _selectedSeason,
                   dataTabController: _dataTabController,
                 ),
-                _DiscoveryContent(
-                  title: 'Competitions',
-                  description: 'Browse competitions by region using More, or choose one of the popular leagues above.',
-                  onMore: _showMoreCompetitions,
-                ),
-                _DiscoveryContent(
-                  title: 'World rankings',
-                  description: 'Rankings and team comparisons will appear here when an approved data source is connected.',
-                  onMore: _showMoreCompetitions,
-                ),
+                _CafCompetitionsContent(onMore: _showMoreCompetitions),
+                const _RankingsContent(),
                 const _GroupsContent(),
                 const _TransfersContent(),
               ],
@@ -289,66 +283,56 @@ class _GroupsContentState extends State<_GroupsContent> {
   }
 
   @override
-  Widget build(
-    BuildContext context,
-  ) => FutureBuilder<List<Map<String, dynamic>>>(
-    future: _standings,
-    builder: (context, snapshot) {
-      if (snapshot.connectionState != ConnectionState.done) {
-        return const Center(child: CircularProgressIndicator());
-      }
-      if (snapshot.hasError) {
-        return const _ExploreMessage(
-          icon: Icons.cloud_off_rounded,
-          title: 'Groups are unavailable',
-          message:
-              'Connect to the AFCON backend to load published group tables.',
-        );
-      }
-      final groups = <String, List<Map<String, dynamic>>>{};
-      for (final row in snapshot.data ?? const <Map<String, dynamic>>[]) {
-        final group = '${row['group_code'] ?? ''}'.trim();
-        if (group.isEmpty) continue;
-        groups.putIfAbsent(group, () => []).add(row);
-      }
-      if (groups.isEmpty) {
-        return const _ExploreMessage(
-          icon: Icons.groups_rounded,
-          title: 'No published groups yet',
-          message: 'Group tables will appear here when AFCON standings are published from the dashboard.',
-        );
-      }
-      final groupNames = groups.keys.toList()..sort();
-      return ListView(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
-        children: [
-          const Text(
-            'AFCON qualifying groups',
-            style: TextStyle(
-              color: Color(0xFF1E1E1E),
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Published standings from the AFCON backend',
-            style: TextStyle(color: Color(0xFF666666), fontSize: 12),
-          ),
-          const SizedBox(height: 12),
-          for (final group in groupNames)
-            _GroupStandingsCard(
-              group: group,
-              rows: groups[group]!
-                ..sort(
-                  (a, b) =>
-                      _standingPosition(a).compareTo(_standingPosition(b)),
+  Widget build(BuildContext context) =>
+      FutureBuilder<List<Map<String, dynamic>>>(
+        future: _standings,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return const _QualifierGroupsContent();
+          }
+          final groups = <String, List<Map<String, dynamic>>>{};
+          for (final row in snapshot.data ?? const <Map<String, dynamic>>[]) {
+            final group = '${row['group_code'] ?? ''}'.trim();
+            if (group.isEmpty) continue;
+            groups.putIfAbsent(group, () => []).add(row);
+          }
+          if (groups.isEmpty) {
+            return const _QualifierGroupsContent();
+          }
+          final groupNames = groups.keys.toList()..sort();
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
+            children: [
+              const Text(
+                'AFCON qualifying groups',
+                style: TextStyle(
+                  color: Color(0xFF1E1E1E),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
                 ),
-            ),
-        ],
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Published standings from the AFCON backend',
+                style: TextStyle(color: Color(0xFF666666), fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              for (final group in groupNames)
+                _GroupStandingsCard(
+                  group: group,
+                  rows: groups[group]!
+                    ..sort(
+                      (a, b) =>
+                          _standingPosition(a).compareTo(_standingPosition(b)),
+                    ),
+                ),
+            ],
+          );
+        },
       );
-    },
-  );
 }
 
 int _standingPosition(Map<String, dynamic> row) =>
@@ -461,66 +445,654 @@ class _GroupStandingsCard extends StatelessWidget {
   );
 }
 
+class _QualifierGroupsContent extends StatelessWidget {
+  const _QualifierGroupsContent();
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+    children: [
+      const _ExploreSectionHeading(
+        eyebrow: 'AFCON 2027 QUALIFIERS',
+        title: 'The qualifying draw',
+        description: 'Teams are arranged into 12 groups. Match results and standings will appear when officially published.',
+      ),
+      const SizedBox(height: 12),
+      for (final group in pamojaGroups) _QualifierGroupCard(group: group),
+      const Padding(
+        padding: EdgeInsets.only(top: 8),
+        child: Text(
+          'Group draw information from CAF-published material. No results are shown here.',
+          style: TextStyle(color: Color(0xFF666666), fontSize: 10, height: 1.4),
+        ),
+      ),
+    ],
+  );
+}
+
+class _QualifierGroupCard extends StatelessWidget {
+  const _QualifierGroupCard({required this.group});
+
+  final PamojaGroup group;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(bottom: 10),
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: const Color(0xFFE6E6E6)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'GROUP ${group.code}',
+          style: const TextStyle(
+            color: Color(0xFF800000),
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+            letterSpacing: .5,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 7,
+          runSpacing: 7,
+          children: group.teams
+              .map(
+                (team) => Chip(
+                  label: Text(team),
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: const Color(0xFFF5F6F5),
+                  side: BorderSide.none,
+                  labelStyle: const TextStyle(
+                    color: Color(0xFF343A40),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+      ],
+    ),
+  );
+}
+
 class _TransfersContent extends StatelessWidget {
   const _TransfersContent();
 
   @override
-  Widget build(BuildContext context) => const _ExploreMessage(
-    icon: Icons.swap_horiz_rounded,
-    title: 'Transfers',
-    message: 'Transfer news will appear here when a verified football transfer data source is connected.',
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+    children: [
+      const _ExploreSectionHeading(
+        eyebrow: 'TRANSFER TRACKER',
+        title: 'Notable past moves',
+        description: 'A look back at high-profile moves involving African internationals. This is historical context, not live transfer news.',
+      ),
+      const SizedBox(height: 12),
+      const _TransferMoveCard(
+        player: 'Mohammed Kudus',
+        from: 'Ajax',
+        to: 'West Ham United',
+        year: '2023',
+      ),
+      const _TransferMoveCard(
+        player: 'Sadio Mané',
+        from: 'Bayern Munich',
+        to: 'Al-Nassr',
+        year: '2023',
+      ),
+      const _TransferMoveCard(
+        player: 'Victor Osimhen',
+        from: 'Napoli',
+        to: 'Galatasaray (loan)',
+        year: '2024',
+      ),
+    ],
   );
 }
 
-class _ExploreMessage extends StatelessWidget {
-  const _ExploreMessage({
-    required this.icon,
+class _ExploreSectionHeading extends StatelessWidget {
+  const _ExploreSectionHeading({
+    required this.eyebrow,
     required this.title,
-    required this.message,
+    required this.description,
   });
 
-  final IconData icon;
+  final String eyebrow;
   final String title;
-  final String message;
+  final String description;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF5E6E6),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Icon(icon, color: const Color(0xFF800000), size: 28),
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        eyebrow,
+        style: const TextStyle(
+          color: Color(0xFF800000),
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+          letterSpacing: .8,
+        ),
+      ),
+      const SizedBox(height: 5),
+      Text(
+        title,
+        style: const TextStyle(
+          color: Color(0xFF1E1E1E),
+          fontSize: 21,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      const SizedBox(height: 5),
+      Text(
+        description,
+        style: const TextStyle(
+          color: Color(0xFF666666),
+          fontSize: 12,
+          height: 1.45,
+        ),
+      ),
+    ],
+  );
+}
+
+class _TransferMoveCard extends StatelessWidget {
+  const _TransferMoveCard({
+    required this.player,
+    required this.from,
+    required this.to,
+    required this.year,
+  });
+
+  final String player;
+  final String from;
+  final String to;
+  final String year;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(bottom: 10),
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: const Color(0xFFE6E6E6)),
+    ),
+    child: Row(
+      children: [
+        const CircleAvatar(
+          backgroundColor: Color(0xFFF5E6E6),
+          child: Icon(Icons.swap_horiz_rounded, color: Color(0xFF800000)),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                player,
+                style: const TextStyle(
+                  color: Color(0xFF1E1E1E),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '$from  →  $to',
+                style: const TextStyle(
+                  color: Color(0xFF555555),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 14),
-          Text(
-            title,
+        ),
+        Text(
+          year,
+          style: const TextStyle(
+            color: Color(0xFF800000),
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _SamplePlayersContent extends StatelessWidget {
+  const _SamplePlayersContent({
+    required this.league,
+    required this.season,
+    required this.preview,
+  });
+
+  final String league;
+  final String season;
+  final _CompetitionPreview preview;
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+    children: [
+      const _ExploreSectionHeading(
+        eyebrow: 'PLAYER SPOTLIGHT',
+        title: 'African players to know',
+        description: 'A sample of well-known internationals. This is not a confirmed squad or current-season statistics.',
+      ),
+      const SizedBox(height: 12),
+      for (final player in preview.players)
+        _ExplorePlayerCard(player: player, season: season),
+      Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Text(
+          '$league player list is an editorial preview, not an official roster.',
+          style: const TextStyle(
+            color: Color(0xFF666666),
+            fontSize: 10,
+            height: 1.4,
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+class _SampleTeamsContent extends StatelessWidget {
+  const _SampleTeamsContent({required this.league, required this.preview});
+
+  final String league;
+  final _CompetitionPreview preview;
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+    children: [
+      const _ExploreSectionHeading(
+        eyebrow: 'TEAM DIRECTORY',
+        title: 'National teams',
+        description: 'Browse a few of the national sides featured across African football.',
+      ),
+      const SizedBox(height: 12),
+      for (final team in preview.teams)
+        _SimpleProfileCard(
+          leading: team.name.substring(0, 1),
+          title: team.name,
+          subtitle: '${team.nickname} · ${team.region}',
+        ),
+      Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Text(
+          'Showing a sample directory for $league. Team list is not competition qualification status.',
+          style: const TextStyle(
+            color: Color(0xFF666666),
+            fontSize: 10,
+            height: 1.4,
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+class _SampleFixturesContent extends StatelessWidget {
+  const _SampleFixturesContent({required this.league, required this.preview});
+
+  final String league;
+  final _CompetitionPreview preview;
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+    children: [
+      const _ExploreSectionHeading(
+        eyebrow: 'FIXTURE PREVIEW',
+        title: 'Matchday fixtures',
+        description: 'These sample pairings are for layout preview only and are not confirmed matches.',
+      ),
+      const SizedBox(height: 12),
+      for (final match in preview.fixtures)
+        Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: const Color(0xFFE6E6E6)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      match.home,
+                      style: const TextStyle(
+                        color: Color(0xFF1E1E1E),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const Text(
+                    'VS',
+                    style: TextStyle(
+                      color: Color(0xFF800000),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      match.away,
+                      textAlign: TextAlign.end,
+                      style: const TextStyle(
+                        color: Color(0xFF1E1E1E),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 9),
+              Text(
+                '$league · ${match.note}',
+                style: const TextStyle(color: Color(0xFF666666), fontSize: 10),
+              ),
+            ],
+          ),
+        ),
+      const Text(
+        'Fixture dates, venues, and team pairings will be updated when officially published.',
+        style: TextStyle(color: Color(0xFF666666), fontSize: 10, height: 1.4),
+      ),
+    ],
+  );
+}
+
+class _SimpleProfileCard extends StatelessWidget {
+  const _SimpleProfileCard({
+    required this.leading,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String leading;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(bottom: 9),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFFE6E6E6)),
+    ),
+    child: Row(
+      children: [
+        CircleAvatar(
+          radius: 19,
+          backgroundColor: const Color(0xFFF5E6E6),
+          child: Text(
+            leading,
             style: const TextStyle(
-              color: Color(0xFF1E1E1E),
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
+              color: Color(0xFF800000),
+              fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF666666),
-              fontSize: 13,
-              height: 1.45,
-            ),
+        ),
+        const SizedBox(width: 11),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Color(0xFF1E1E1E),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: const TextStyle(color: Color(0xFF666666), fontSize: 10),
+              ),
+            ],
           ),
-        ],
+        ),
+        const Icon(
+          Icons.arrow_forward_ios_rounded,
+          color: Color(0xFF999999),
+          size: 13,
+        ),
+      ],
+    ),
+  );
+}
+
+class _ExplorePlayerCard extends StatelessWidget {
+  const _ExplorePlayerCard({required this.player, required this.season});
+
+  final _PreviewPlayer player;
+  final String season;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(14),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (context) => PlayerProfileScreen(
+            playerName: player.name,
+            teamName: player.team,
+            position: player.position,
+            squadNumber: player.number,
+            season: season,
+          ),
+        ),
+      ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 9),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE6E6E6)),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 19,
+              backgroundColor: const Color(0xFFF5E6E6),
+              child: Text(
+                player.name.substring(0, 1),
+                style: const TextStyle(
+                  color: Color(0xFF800000),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    player.name,
+                    style: const TextStyle(
+                      color: Color(0xFF1E1E1E),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${player.team} · ${player.position}',
+                    style: const TextStyle(
+                      color: Color(0xFF666666),
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: Color(0xFF999999),
+              size: 13,
+            ),
+          ],
+        ),
       ),
     ),
+  );
+}
+
+class _CafCompetitionsContent extends StatelessWidget {
+  const _CafCompetitionsContent({required this.onMore});
+
+  final VoidCallback onMore;
+
+  static const _competitions = [
+    (
+      'Africa Cup of Nations',
+      'Senior men’s national teams',
+      Icons.public_rounded,
+    ),
+    (
+      'African Nations Championship',
+      'Domestic-league players',
+      Icons.groups_rounded,
+    ),
+    (
+      'CAF Champions League',
+      'Top-level African club football',
+      Icons.emoji_events_rounded,
+    ),
+    (
+      'CAF Confederation Cup',
+      'Continental club competition',
+      Icons.sports_soccer_rounded,
+    ),
+    (
+      'Women’s Africa Cup of Nations',
+      'Senior women’s national teams',
+      Icons.woman_rounded,
+    ),
+    (
+      'CAF Women’s Champions League',
+      'Women’s club football',
+      Icons.emoji_events_outlined,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+    children: [
+      const _ExploreSectionHeading(
+        eyebrow: 'CAF COMPETITIONS',
+        title: 'Football across Africa',
+        description: 'Follow national-team tournaments and continental club competitions.',
+      ),
+      const SizedBox(height: 12),
+      for (final competition in _competitions)
+        Container(
+          margin: const EdgeInsets.only(bottom: 9),
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE6E6E6)),
+          ),
+          child: Row(
+            children: [
+              Icon(competition.$3, color: const Color(0xFF800000), size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      competition.$1,
+                      style: const TextStyle(
+                        color: Color(0xFF1E1E1E),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      competition.$2,
+                      style: const TextStyle(
+                        color: Color(0xFF666666),
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      OutlinedButton.icon(
+        onPressed: onMore,
+        icon: const Icon(Icons.grid_view_rounded),
+        label: const Text('Browse all competitions'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF800000),
+        ),
+      ),
+    ],
+  );
+}
+
+class _RankingsContent extends StatelessWidget {
+  const _RankingsContent();
+
+  static const _champions = [
+    ('2023', 'Côte d’Ivoire', 'Hosts lifted their third AFCON title.'),
+    ('2021', 'Senegal', 'Claimed the nation’s first AFCON title.'),
+    ('2019', 'Algeria', 'Won their second AFCON title.'),
+    ('2017', 'Cameroon', 'Secured their fifth AFCON title.'),
+  ];
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+    children: [
+      const _ExploreSectionHeading(
+        eyebrow: 'RANKINGS & HISTORY',
+        title: 'Recent AFCON champions',
+        description: 'A quick historical snapshot while verified live rankings are unavailable.',
+      ),
+      const SizedBox(height: 12),
+      for (final champion in _champions)
+        _SimpleProfileCard(
+          leading: champion.$1.substring(2),
+          title: '${champion.$2} · ${champion.$1}',
+          subtitle: champion.$3,
+        ),
+      const Text(
+        'Historical winners are shown here instead of presenting unofficial ranking positions.',
+        style: TextStyle(color: Color(0xFF666666), fontSize: 10, height: 1.4),
+      ),
+    ],
   );
 }
 
@@ -567,6 +1139,7 @@ class _CompetitionContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final preview = _previewForCompetition(league);
     return Column(
       children: [
         Container(
@@ -586,19 +1159,14 @@ class _CompetitionContent extends StatelessWidget {
           child: TabBarView(
             controller: dataTabController,
             children: [
-              _StandingsTable(league: league, season: season),
-              const _DataPlaceholder(
-                title: 'Top players',
-                message: 'Player statistics will appear here.',
+              _StandingsTable(league: league, season: season, preview: preview),
+              _SamplePlayersContent(
+                league: league,
+                season: season,
+                preview: preview,
               ),
-              const _DataPlaceholder(
-                title: 'Teams',
-                message: 'Competition team profiles will appear here.',
-              ),
-              const _DataPlaceholder(
-                title: 'Fixtures',
-                message: 'Competition fixtures will appear here.',
-              ),
+              _SampleTeamsContent(league: league, preview: preview),
+              _SampleFixturesContent(league: league, preview: preview),
             ],
           ),
         ),
@@ -608,20 +1176,15 @@ class _CompetitionContent extends StatelessWidget {
 }
 
 class _StandingsTable extends StatelessWidget {
-  const _StandingsTable({required this.league, required this.season});
+  const _StandingsTable({
+    required this.league,
+    required this.season,
+    required this.preview,
+  });
 
   final String league;
   final String season;
-
-  static const _rows = [
-    ('1', 'Uganda', '3', '3', '0', '0', '9'),
-    ('2', 'Ghana', '3', '2', '1', '0', '7'),
-    ('3', 'Nigeria', '3', '2', '0', '1', '6'),
-    ('4', 'Morocco', '3', '1', '2', '0', '5'),
-    ('5', 'Senegal', '3', '1', '1', '1', '4'),
-    ('6', 'Egypt', '3', '1', '0', '2', '3'),
-    ('7', 'South Africa', '3', '0', '2', '1', '2'),
-  ];
+  final _CompetitionPreview preview;
 
   @override
   Widget build(BuildContext context) {
@@ -648,12 +1211,23 @@ class _StandingsTable extends StatelessWidget {
             ],
           ),
         ),
-        for (var index = 0; index < _rows.length; index++)
-          _StandingsRow(values: _rows[index], highlighted: index < 4),
+        for (var index = 0; index < preview.table.length; index++)
+          _StandingsRow(
+            values: (
+              '${index + 1}',
+              preview.table[index].team,
+              preview.table[index].played,
+              preview.table[index].wins,
+              preview.table[index].draws,
+              preview.table[index].losses,
+              preview.table[index].points,
+            ),
+            highlighted: index == 0,
+          ),
         Padding(
           padding: const EdgeInsets.all(14),
           child: Text(
-            '$league $season standings shown for layout preview only. Not official competition data.',
+            '$league · $season: ${preview.tableNote}',
             style: const TextStyle(
               color: Color(0xFF666666),
               fontSize: 10,
@@ -749,106 +1323,231 @@ class _StandingsRow extends StatelessWidget {
   }
 }
 
-class _DataPlaceholder extends StatelessWidget {
-  const _DataPlaceholder({required this.title, required this.message});
+class _PreviewStanding {
+  const _PreviewStanding(
+    this.team,
+    this.played,
+    this.wins,
+    this.draws,
+    this.losses,
+    this.points,
+  );
 
-  final String title;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.insights_rounded,
-              color: Color(0xFF800000),
-              size: 38,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              style: const TextStyle(
-                color: Color(0xFF1E1E1E),
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFF666666), fontSize: 12),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  final String team;
+  final String played;
+  final String wins;
+  final String draws;
+  final String losses;
+  final String points;
 }
 
-class _DiscoveryContent extends StatelessWidget {
-  const _DiscoveryContent({
-    required this.title,
-    required this.description,
-    required this.onMore,
+class _PreviewPlayer {
+  const _PreviewPlayer(
+    this.name,
+    this.team,
+    this.position, [
+    this.number = '—',
+  ]);
+
+  final String name;
+  final String team;
+  final String position;
+  final String number;
+}
+
+class _PreviewTeam {
+  const _PreviewTeam(this.name, this.region, this.nickname);
+
+  final String name;
+  final String region;
+  final String nickname;
+}
+
+class _PreviewFixture {
+  const _PreviewFixture(this.home, this.away, this.note);
+
+  final String home;
+  final String away;
+  final String note;
+}
+
+class _CompetitionPreview {
+  const _CompetitionPreview({
+    required this.table,
+    required this.tableNote,
+    required this.players,
+    required this.teams,
+    required this.fixtures,
   });
 
-  final String title;
-  final String description;
-  final VoidCallback onMore;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.emoji_events_outlined,
-              color: Color(0xFF800000),
-              size: 42,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                color: Color(0xFF1E1E1E),
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              description,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF666666),
-                fontSize: 13,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: onMore,
-              icon: const Icon(Icons.grid_view_rounded),
-              label: const Text('Browse all competitions'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF800000),
-                side: const BorderSide(color: Color(0xFFB7D4C4)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  final List<_PreviewStanding> table;
+  final String tableNote;
+  final List<_PreviewPlayer> players;
+  final List<_PreviewTeam> teams;
+  final List<_PreviewFixture> fixtures;
 }
+
+_CompetitionPreview _previewForCompetition(String league) {
+  final name = league.toLowerCase();
+  if (name.contains('wafcon') || name.contains('women')) {
+    return _womenPreview;
+  }
+  if (name.contains('confederation')) return _confederationPreview;
+  if (name.contains('champions') || name.contains('club')) {
+    return _championsPreview;
+  }
+  return _afconPreview;
+}
+
+const _afconPreview = _CompetitionPreview(
+  tableNote: 'illustrative table only; results are not official.',
+  table: [
+    _PreviewStanding('Morocco', '3', '2', '1', '0', '7'),
+    _PreviewStanding('Gabon', '3', '1', '2', '0', '5'),
+    _PreviewStanding('Niger', '3', '1', '0', '2', '3'),
+    _PreviewStanding('Lesotho', '3', '0', '1', '2', '1'),
+  ],
+  players: [
+    _PreviewPlayer('Mohammed Kudus', 'Ghana', 'Midfielder', '20'),
+    _PreviewPlayer('Victor Osimhen', 'Nigeria', 'Forward', '9'),
+    _PreviewPlayer('Mohamed Salah', 'Egypt', 'Forward', '10'),
+    _PreviewPlayer('Achraf Hakimi', 'Morocco', 'Defender', '2'),
+    _PreviewPlayer('Rogers Mato', 'Uganda', 'Forward', '17'),
+  ],
+  teams: [
+    _PreviewTeam('Morocco', 'North Africa', 'Atlas Lions'),
+    _PreviewTeam('Ghana', 'West Africa', 'Black Stars'),
+    _PreviewTeam('Nigeria', 'West Africa', 'Super Eagles'),
+    _PreviewTeam('Uganda', 'East Africa', 'Cranes'),
+    _PreviewTeam('South Africa', 'Southern Africa', 'Bafana Bafana'),
+  ],
+  fixtures: [
+    _PreviewFixture('Uganda', 'Ghana', 'sample pairing · date and venue TBC'),
+    _PreviewFixture(
+      'Morocco',
+      'Nigeria',
+      'sample pairing · date and venue TBC',
+    ),
+    _PreviewFixture('Senegal', 'Egypt', 'sample pairing · date and venue TBC'),
+  ],
+);
+
+const _championsPreview = _CompetitionPreview(
+  tableNote: 'illustrative club table; not live CAF standings.',
+  table: [
+    _PreviewStanding('Al Ahly', '4', '3', '1', '0', '10'),
+    _PreviewStanding('Mamelodi Sundowns', '4', '2', '1', '1', '7'),
+    _PreviewStanding('Espérance de Tunis', '4', '1', '1', '2', '4'),
+    _PreviewStanding('Raja Casablanca', '4', '0', '1', '3', '1'),
+  ],
+  players: [
+    _PreviewPlayer('Percy Tau', 'Al Ahly', 'Forward', '10'),
+    _PreviewPlayer('Ronwen Williams', 'Mamelodi Sundowns', 'Goalkeeper', '1'),
+    _PreviewPlayer('Teboho Mokoena', 'Mamelodi Sundowns', 'Midfielder', '4'),
+    _PreviewPlayer('Peter Shalulile', 'Mamelodi Sundowns', 'Forward', '9'),
+  ],
+  teams: [
+    _PreviewTeam('Al Ahly', 'Egypt', 'The Red Devils'),
+    _PreviewTeam('Mamelodi Sundowns', 'South Africa', 'The Brazilians'),
+    _PreviewTeam('Espérance de Tunis', 'Tunisia', 'Blood and Gold'),
+    _PreviewTeam('Raja Casablanca', 'Morocco', 'The Greens'),
+  ],
+  fixtures: [
+    _PreviewFixture(
+      'Al Ahly',
+      'Raja Casablanca',
+      'sample club pairing · schedule TBC',
+    ),
+    _PreviewFixture(
+      'Mamelodi Sundowns',
+      'Espérance de Tunis',
+      'sample club pairing · schedule TBC',
+    ),
+    _PreviewFixture(
+      'Raja Casablanca',
+      'Mamelodi Sundowns',
+      'sample club pairing · schedule TBC',
+    ),
+  ],
+);
+
+const _confederationPreview = _CompetitionPreview(
+  tableNote: 'illustrative club table; not live CAF standings.',
+  table: [
+    _PreviewStanding('RS Berkane', '4', '3', '1', '0', '10'),
+    _PreviewStanding('Zamalek', '4', '2', '1', '1', '7'),
+    _PreviewStanding('USM Alger', '4', '1', '1', '2', '4'),
+    _PreviewStanding('Simba SC', '4', '0', '1', '3', '1'),
+  ],
+  players: [
+    _PreviewPlayer('Youssef El Fahli', 'RS Berkane', 'Forward', '17'),
+    _PreviewPlayer('Ahmed Sayed Zizo', 'Zamalek', 'Forward', '25'),
+    _PreviewPlayer('Houssem Ghacha', 'USM Alger', 'Forward', '11'),
+    _PreviewPlayer('Clatous Chama', 'Simba SC', 'Midfielder', '17'),
+  ],
+  teams: [
+    _PreviewTeam('RS Berkane', 'Morocco', 'The Orange'),
+    _PreviewTeam('Zamalek', 'Egypt', 'The White Knights'),
+    _PreviewTeam('USM Alger', 'Algeria', 'The Reds and Blacks'),
+    _PreviewTeam('Simba SC', 'Tanzania', 'The Reds'),
+  ],
+  fixtures: [
+    _PreviewFixture(
+      'RS Berkane',
+      'Zamalek',
+      'sample club pairing · schedule TBC',
+    ),
+    _PreviewFixture(
+      'USM Alger',
+      'Simba SC',
+      'sample club pairing · schedule TBC',
+    ),
+    _PreviewFixture(
+      'Zamalek',
+      'Simba SC',
+      'sample club pairing · schedule TBC',
+    ),
+  ],
+);
+
+const _womenPreview = _CompetitionPreview(
+  tableNote: 'illustrative women’s table; not live competition standings.',
+  table: [
+    _PreviewStanding('Nigeria', '3', '2', '1', '0', '7'),
+    _PreviewStanding('South Africa', '3', '2', '0', '1', '6'),
+    _PreviewStanding('Morocco', '3', '1', '1', '1', '4'),
+    _PreviewStanding('Zambia', '3', '0', '0', '3', '0'),
+  ],
+  players: [
+    _PreviewPlayer('Asisat Oshoala', 'Nigeria', 'Forward', '8'),
+    _PreviewPlayer('Barbra Banda', 'Zambia', 'Forward', '11'),
+    _PreviewPlayer('Thembi Kgatlana', 'South Africa', 'Forward', '11'),
+    _PreviewPlayer('Racheal Kundananji', 'Zambia', 'Forward', '9'),
+  ],
+  teams: [
+    _PreviewTeam('Nigeria', 'West Africa', 'Super Falcons'),
+    _PreviewTeam('South Africa', 'Southern Africa', 'Banyana Banyana'),
+    _PreviewTeam('Morocco', 'North Africa', 'Atlas Lionesses'),
+    _PreviewTeam('Zambia', 'Southern Africa', 'Copper Queens'),
+  ],
+  fixtures: [
+    _PreviewFixture(
+      'Nigeria',
+      'South Africa',
+      'sample women’s pairing · schedule TBC',
+    ),
+    _PreviewFixture(
+      'Morocco',
+      'Zambia',
+      'sample women’s pairing · schedule TBC',
+    ),
+    _PreviewFixture(
+      'South Africa',
+      'Morocco',
+      'sample women’s pairing · schedule TBC',
+    ),
+  ],
+);
 
 class _RegionButton extends StatelessWidget {
   const _RegionButton({

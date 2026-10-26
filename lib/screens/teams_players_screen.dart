@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/afcon_api.dart';
-import 'matches_screen.dart';
+import 'pamoja_2027_screen.dart';
 import 'pamoja_tournament_card.dart';
 
 class TeamsPlayersScreen extends StatefulWidget {
@@ -11,6 +11,35 @@ class TeamsPlayersScreen extends StatefulWidget {
 
   @override
   State<TeamsPlayersScreen> createState() => _TeamsPlayersScreenState();
+}
+
+class PlayerProfileScreen extends StatelessWidget {
+  const PlayerProfileScreen({
+    super.key,
+    required this.playerName,
+    required this.teamName,
+    required this.position,
+    required this.squadNumber,
+    required this.season,
+  });
+
+  final String playerName;
+  final String teamName;
+  final String position;
+  final String squadNumber;
+  final String season;
+
+  @override
+  Widget build(BuildContext context) => _PlayerProfileScreen(
+    player: _Player(playerName, position, squadNumber),
+    club: _Club(
+      teamName,
+      season.split('/').first,
+      teamName.isEmpty ? '?' : teamName[0].toUpperCase(),
+      const Color(0xFF800000),
+    ),
+    season: season,
+  );
 }
 
 class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
@@ -351,17 +380,31 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
         children: [
           PamojaTournamentCard(
-            onOpenMatches: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const MatchesScreen()),
+            onOpenTournament: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const Pamoja2027Screen()),
             ),
           ),
-          const SizedBox(height: 20),
           const Text(
-            'Browse by African region',
+            'National teams across Africa',
             style: TextStyle(
               color: _ink,
-              fontSize: 18,
+              fontSize: 22,
               fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            'Browse national sides by region, then explore available squad previews.',
+            style: TextStyle(color: _muted, fontSize: 12, height: 1.45),
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'Browse by region',
+            style: TextStyle(
+              color: _ink,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 10),
@@ -378,7 +421,7 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
                   label: Text(league),
                   selected: selected,
                   showCheckmark: false,
-                  selectedColor: _brandMaroon,
+                  selectedColor: const Color(0xFF176B46),
                   backgroundColor: Colors.white,
                   labelStyle: TextStyle(
                     color: selected ? Colors.white : _ink,
@@ -395,11 +438,11 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          const Text(
-            'Teams',
-            style: TextStyle(
+          Text(
+            'Teams · ${clubs.length}',
+            style: const TextStyle(
               color: _ink,
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -443,7 +486,7 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
             children: [
               Expanded(
                 child: Text(
-                  '${selectedClub.name} player rankings',
+                  '${selectedClub.name} squad',
                   style: const TextStyle(
                     color: _ink,
                     fontSize: 18,
@@ -664,8 +707,9 @@ class _HistoryPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF25333D),
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFE5ECEE)),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
@@ -678,7 +722,7 @@ class _HistoryPanel extends StatelessWidget {
                 Text(
                   club.name,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Color(0xFF1E1E1E),
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
                   ),
@@ -686,7 +730,10 @@ class _HistoryPanel extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'National team · sample season archive',
-                  style: const TextStyle(color: Colors.white70, fontSize: 10),
+                  style: const TextStyle(
+                    color: Color(0xFF666666),
+                    fontSize: 10,
+                  ),
                 ),
               ],
             ),
@@ -696,10 +743,10 @@ class _HistoryPanel extends StatelessWidget {
             child: DropdownButton<String>(
               key: const Key('player-season-picker'),
               value: selectedSeason,
-              dropdownColor: const Color(0xFF25333D),
-              iconEnabledColor: Colors.white,
+              dropdownColor: Colors.white,
+              iconEnabledColor: const Color(0xFF1E1E1E),
               style: const TextStyle(
-                color: Colors.white,
+                color: Color(0xFF1E1E1E),
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),

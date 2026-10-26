@@ -58,9 +58,7 @@ The app currently has preview content and does not connect to an official match 
 
 The TypeScript API scaffold, PostgreSQL schema, Flutter API client, and local setup steps are in [backend/README.md](backend/README.md). Configure `AFCON_API_URL` with a Dart define for the phone or emulator. The assistant and voice translation controls now call the API and show its actual setup status; they remain unavailable until provider adapters and credentials are configured.
 
-The React admin dashboard is in `dashboard/`. Follow [backend/README.md](backend/README.md#admin-dashboard) to configure its protected API connection and run it locally.
-
-The app reads published matches, standings, venues, team rosters, articles, events and media from the backend. The dashboard writes those records to PostgreSQL through protected admin endpoints. On an Android emulator, the app defaults to the host API at `10.0.2.2:8080`; for a physical phone, pass the computer's LAN address with `--dart-define=AFCON_API_URL=http://YOUR_COMPUTER_IP:8080/api/v1`.
+The app reads published matches, standings, venues, team rosters, articles, events, media and AFCON PAMOJA qualifier details from the backend. The browser control room at `dashboard/` uses the initial owner account and session login to manage content through protected API endpoints. See [backend/README.md](backend/README.md) and [dashboard/README.md](dashboard/README.md) to run both. On an Android emulator, the app defaults to the host API at `10.0.2.2:8080`; for a physical phone, pass the computer's LAN address with `--dart-define=AFCON_API_URL=http://YOUR_COMPUTER_IP:8080/api/v1`.
 
 ## Run
 

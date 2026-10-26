@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
 import 'teams_players_screen.dart';
@@ -16,6 +18,57 @@ const _cafMaroonDeep = Color(0xFF5C0000);
 const _ink = Color(0xFF1E1E1E);
 const _muted = Color(0xFF666666);
 const _canvas = Color(0xFFF7F7F7);
+
+const _officialAfconVideos = [
+  (
+    title: 'Senegal vs Morocco',
+    round: 'AFCON 2025 Final highlights',
+    date: '18 January 2026',
+    youtubeId: 'chuhAI45g70',
+    category: 'Highlights',
+    source: 'CAF TV',
+  ),
+  (
+    title: 'Egypt vs Nigeria',
+    round: 'Third-place highlights',
+    date: '17 January 2026',
+    youtubeId: 'SFrZtXJAThY',
+    category: 'Highlights',
+    source: 'CAF TV',
+  ),
+  (
+    title: 'Nigeria vs Morocco',
+    round: 'Semi-final highlights',
+    date: '14 January 2026',
+    youtubeId: '8rVYcW0-oh0',
+    category: 'Highlights',
+    source: 'CAF TV',
+  ),
+  (
+    title: 'Senegal vs Egypt',
+    round: 'Semi-final highlights',
+    date: '14 January 2026',
+    youtubeId: 'Kd1CQx0Fu7M',
+    category: 'Highlights',
+    source: 'CAF TV',
+  ),
+  (
+    title: 'Sadio Mane interview: Winning with Senegal',
+    round: 'Player interview',
+    date: '8 January 2026',
+    youtubeId: 'QUk0olaIf8o',
+    category: 'Interviews',
+    source: 'beIN SPORTS',
+  ),
+  (
+    title: 'AFCON 2025 is on the doors',
+    round: 'Tournament build-up',
+    date: '20 December 2025',
+    youtubeId: '2c_0qo4Mz2w',
+    category: 'Road to AFCON',
+    source: 'CAF TV',
+  ),
+];
 
 /// Polished feature surfaces for AFCON features that are not yet backed by an
 /// approved live data or content provider.
@@ -36,6 +89,7 @@ class AfconFeatureScreen extends StatefulWidget {
 class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
   final _api = AfconApi();
   final Map<String, Future<List<Map<String, dynamic>>>> _contentRequests = {};
+  String _selectedVideoCategory = 'Highlights';
   final Set<String> _followedTeams = {};
   final Map<String, bool> _notificationPreferences = {
     'Match reminders': true,
@@ -48,7 +102,8 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
   String? _assistantResponse;
   bool _assistantLoading = false;
   final List<_CommunityPost> _communityPosts = [];
-  final Set<int> _likedCommunityPosts = {};
+  final Set<DateTime> _likedCommunityPosts = {};
+  String _communityUsername = 'AFCON Fan';
 
   @override
   void dispose() {
@@ -184,6 +239,17 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
           }
           return ListTile(
             contentPadding: EdgeInsets.zero,
+            onTap: resource == 'media'
+                ? () {
+                    final mediaUrl =
+                        record['playback_url'] ??
+                        record['url'] ??
+                        record['source_url'];
+                    if (mediaUrl is String && mediaUrl.isNotEmpty) {
+                      _openExternalVideo(mediaUrl);
+                    }
+                  }
+                : null,
             leading: CircleAvatar(
               backgroundColor: const Color(0xFFF5E6E6),
               child: Icon(icon, color: _cafMaroon, size: 19),
@@ -220,7 +286,7 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
               surfaceTintColor: Colors.white,
               elevation: 0,
               title: Text(
-                feature == 'Media' ? 'AFCON Match Center' : feature,
+                feature == 'Media' ? 'AFCON Media' : feature,
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
             )
@@ -420,55 +486,123 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
     ],
   );
 
-  Widget _backendMediaContent() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(18, 22, 18, 22),
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF101B2B), Color(0xFF173B2D), Color(0xFF102318)],
+  Widget _backendMediaContent() {
+    final featured = _officialAfconVideos.first;
+    final categoryVideos = _officialAfconVideos
+        .where((video) => video.category == _selectedVideoCategory)
+        .where((video) => video.youtubeId != featured.youtubeId)
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: _OfficialVideoCard(
+            title: featured.title,
+            round: featured.round,
+            date: featured.date,
+            youtubeId: featured.youtubeId,
+            source: featured.source,
+            onTap: () => _openExternalVideo(
+              'https://www.youtube.com/watch?v=${featured.youtubeId}',
+            ),
           ),
         ),
-        child: const Column(
-          children: [
-            Icon(
-              Icons.play_circle_fill_rounded,
-              color: Color(0xFFFFFFFF),
-              size: 38,
-            ),
-            SizedBox(height: 9),
-            Text(
-              'AFCON MEDIA LIBRARY',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 22, 16, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _SectionTitle('Explore AFCON videos'),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: ['Highlights', 'Interviews', 'Road to AFCON']
+                    .map(
+                      (category) => ChoiceChip(
+                        label: Text(category),
+                        selected: category == _selectedVideoCategory,
+                        onSelected: (_) =>
+                            setState(() => _selectedVideoCategory = category),
+                        selectedColor: _cafMaroon,
+                        backgroundColor: Colors.white,
+                        side: BorderSide(
+                          color: category == _selectedVideoCategory
+                              ? _cafMaroon
+                              : const Color(0xFFE6E8E5),
+                        ),
+                        labelStyle: TextStyle(
+                          color: category == _selectedVideoCategory
+                              ? Colors.white
+                              : _ink,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    )
+                    .toList(),
               ),
-            ),
-            SizedBox(height: 5),
-            Text(
-              'Published photos, videos and audio from the dashboard',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFFDCE8DF), fontSize: 12),
-            ),
-          ],
-        ),
-      ),
-      Padding(
-        padding: const EdgeInsets.all(16),
-        child: _Panel(
-          child: _backendContentList(
-            resource: 'media',
-            title: 'media',
-            icon: Icons.play_circle_outline_rounded,
+              const SizedBox(height: 16),
+              Text(
+                _selectedVideoCategory,
+                style: const TextStyle(
+                  color: _ink,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (categoryVideos.isEmpty)
+                const _EventCard(
+                  title: 'More videos coming soon',
+                  detail: 'Browse the CAF archive for more official coverage.',
+                  icon: Icons.video_library_rounded,
+                )
+              else
+                for (final video in categoryVideos) ...[
+                  _OfficialVideoCard(
+                    title: video.title,
+                    round: video.round,
+                    date: video.date,
+                    youtubeId: video.youtubeId,
+                    source: video.source,
+                    onTap: () => _openExternalVideo(
+                      'https://www.youtube.com/watch?v=${video.youtubeId}',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              OutlinedButton.icon(
+                onPressed: () => _openExternalVideo(
+                  'https://www.cafonline.com/afcon2025/videos/',
+                ),
+                icon: const Icon(Icons.open_in_new_rounded, size: 17),
+                label: const Text('More videos on CAF Online'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _cafMaroon,
+                  side: const BorderSide(color: Color(0xFFE3D1D1)),
+                  minimumSize: const Size.fromHeight(44),
+                ),
+              ),
+            ],
           ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
+
+  Future<void> _openExternalVideo(String value) async {
+    final uri = Uri.tryParse(value);
+    if (uri == null ||
+        !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open this video link.')),
+      );
+    }
+  }
 
   Future<void> _composeCommunityPost() async {
     final draft = await showModalBottomSheet<_CommunityPostDraft>(
@@ -483,6 +617,7 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
       _communityPosts.insert(
         0,
         _CommunityPost(
+          author: _communityUsername,
           content: draft.content,
           media: draft.media,
           createdAt: DateTime.now(),
@@ -496,7 +631,15 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
     children: [
       const _SectionTitle('Community feed'),
       const SizedBox(height: 10),
-      _CommunityComposer(onTap: _composeCommunityPost),
+      _CommunityIdentityCard(
+        username: _communityUsername,
+        onEdit: _editCommunityUsername,
+      ),
+      const SizedBox(height: 10),
+      _CommunityComposer(
+        username: _communityUsername,
+        onTap: _composeCommunityPost,
+      ),
       const SizedBox(height: 14),
       if (_communityPosts.isEmpty)
         const _CommunityEmptyState()
@@ -506,16 +649,19 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
             padding: const EdgeInsets.only(bottom: 12),
             child: _CommunityPostCard(
               post: _communityPosts[index],
+              isOwnPost: _communityPosts[index].isOwnPost,
               liked: _likedCommunityPosts.contains(
-                _communityPosts[index].createdAt.microsecondsSinceEpoch,
+                _communityPosts[index].createdAt,
               ),
               onLike: () => setState(() {
-                final postKey =
-                    _communityPosts[index].createdAt.microsecondsSinceEpoch;
+                final postKey = _communityPosts[index].createdAt;
                 if (!_likedCommunityPosts.add(postKey)) {
                   _likedCommunityPosts.remove(postKey);
                 }
               }),
+              onComment: () => _showCommunityComments(_communityPosts[index]),
+              onShare: () => _shareCommunityPost(_communityPosts[index]),
+              onDelete: () => _deleteCommunityPost(_communityPosts[index]),
               onReport: _reportCommunityPost,
             ),
           ),
@@ -523,6 +669,87 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
       const _CommunitySafetyNote(),
     ],
   );
+
+  Future<void> _editCommunityUsername() async {
+    final username = await showDialog<String>(
+      context: context,
+      builder: (context) =>
+          _CommunityUsernameDialog(initialUsername: _communityUsername),
+    );
+    final cleanedUsername = username?.trim() ?? '';
+    if (!mounted || cleanedUsername.isEmpty) return;
+    setState(() => _communityUsername = cleanedUsername);
+  }
+
+  Future<void> _showCommunityComments(_CommunityPost post) async {
+    final comment = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) =>
+          _CommunityCommentsSheet(comments: List.unmodifiable(post.comments)),
+    );
+    final cleanedComment = comment?.trim() ?? '';
+    if (!mounted || cleanedComment.isEmpty) return;
+    setState(() => post.comments.add('$_communityUsername: $cleanedComment'));
+  }
+
+  Future<void> _shareCommunityPost(_CommunityPost post) async {
+    final text = [
+      '${post.author} on AFCON Community',
+      if (post.content.isNotEmpty) post.content,
+      if (post.media.isNotEmpty) '${post.media.length} media attachment(s)',
+    ].join('\n\n');
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          text: text,
+          files: post.media.isEmpty
+              ? null
+              : post.media
+                    .map((media) => XFile(media.file.path))
+                    .toList(growable: false),
+        ),
+      );
+    } on PlatformException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message ?? 'Could not share this post.')),
+      );
+    } on MissingPluginException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sharing is unavailable on this device.')),
+      );
+    }
+  }
+
+  Future<void> _deleteCommunityPost(_CommunityPost post) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete post?'),
+        content: const Text('This will remove your post from this feed.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('community-confirm-delete'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    setState(() {
+      _communityPosts.remove(post);
+      _likedCommunityPosts.remove(post.createdAt);
+    });
+  }
 
   void _reportCommunityPost() {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -534,15 +761,20 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
 }
 
 class _CommunityPost {
-  const _CommunityPost({
+  _CommunityPost({
+    required this.author,
     required this.content,
     required this.media,
     required this.createdAt,
   });
 
+  final String author;
   final String content;
   final List<_CommunityMedia> media;
   final DateTime createdAt;
+  final bool isOwnPost = true;
+  final int likes = 0;
+  final List<String> comments = [];
 }
 
 class _CommunityMedia {
@@ -772,8 +1004,9 @@ class _ComposeCommunityPostSheetState
 }
 
 class _CommunityComposer extends StatelessWidget {
-  const _CommunityComposer({required this.onTap});
+  const _CommunityComposer({required this.username, required this.onTap});
 
+  final String username;
   final VoidCallback onTap;
 
   @override
@@ -783,10 +1016,16 @@ class _CommunityComposer extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Row(
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 20,
             backgroundColor: Color(0xFFF5E6E6),
-            child: Icon(Icons.person_rounded, color: _cafMaroon),
+            child: Text(
+              username.isEmpty ? 'A' : username[0].toUpperCase(),
+              style: const TextStyle(
+                color: _cafMaroon,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
           ),
           const SizedBox(width: 11),
           const Expanded(
@@ -810,17 +1049,128 @@ class _CommunityComposer extends StatelessWidget {
   );
 }
 
+class _CommunityIdentityCard extends StatelessWidget {
+  const _CommunityIdentityCard({required this.username, required this.onEdit});
+
+  final String username;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) => _Panel(
+    child: Row(
+      children: [
+        CircleAvatar(
+          radius: 20,
+          backgroundColor: const Color(0xFFF5E6E6),
+          child: Text(
+            username.isEmpty ? 'A' : username[0].toUpperCase(),
+            style: const TextStyle(
+              color: _cafMaroon,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        const SizedBox(width: 11),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Posting as',
+                style: TextStyle(color: _muted, fontSize: 10),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                username,
+                key: const Key('community-current-username'),
+                style: const TextStyle(
+                  color: _ink,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+        TextButton(
+          key: const Key('community-edit-username'),
+          onPressed: onEdit,
+          child: const Text('Edit name'),
+        ),
+      ],
+    ),
+  );
+}
+
+class _CommunityUsernameDialog extends StatefulWidget {
+  const _CommunityUsernameDialog({required this.initialUsername});
+
+  final String initialUsername;
+
+  @override
+  State<_CommunityUsernameDialog> createState() =>
+      _CommunityUsernameDialogState();
+}
+
+class _CommunityUsernameDialogState extends State<_CommunityUsernameDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialUsername);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Choose a username'),
+    content: TextField(
+      key: const Key('community-username-input'),
+      controller: _controller,
+      autofocus: true,
+      maxLength: 24,
+      textCapitalization: TextCapitalization.words,
+      decoration: const InputDecoration(hintText: 'Your display name'),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        key: const Key('community-username-save'),
+        onPressed: () => Navigator.pop(context, _controller.text),
+        child: const Text('Save'),
+      ),
+    ],
+  );
+}
+
 class _CommunityPostCard extends StatelessWidget {
   const _CommunityPostCard({
     required this.post,
+    required this.isOwnPost,
     required this.liked,
     required this.onLike,
+    required this.onComment,
+    required this.onShare,
+    required this.onDelete,
     required this.onReport,
   });
 
   final _CommunityPost post;
+  final bool isOwnPost;
   final bool liked;
   final VoidCallback onLike;
+  final VoidCallback onComment;
+  final VoidCallback onShare;
+  final VoidCallback onDelete;
   final VoidCallback onReport;
 
   @override
@@ -836,12 +1186,13 @@ class _CommunityPostCard extends StatelessWidget {
               child: Icon(Icons.person_rounded, color: _cafMaroon, size: 21),
             ),
             const SizedBox(width: 10),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'You',
+                    post.author,
+                    key: const Key('community-post-author'),
                     style: TextStyle(
                       color: _ink,
                       fontSize: 13,
@@ -858,9 +1209,25 @@ class _CommunityPostCard extends StatelessWidget {
             ),
             PopupMenuButton<String>(
               tooltip: 'Post options',
-              onSelected: (_) => onReport(),
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'report', child: Text('Report post')),
+              onSelected: (action) {
+                if (action == 'delete') {
+                  onDelete();
+                } else {
+                  onReport();
+                }
+              },
+              itemBuilder: (context) => [
+                if (isOwnPost)
+                  const PopupMenuItem(
+                    key: Key('community-delete-post'),
+                    value: 'delete',
+                    child: Text('Delete post'),
+                  )
+                else
+                  const PopupMenuItem(
+                    value: 'report',
+                    child: Text('Report post'),
+                  ),
               ],
               child: const Icon(Icons.more_horiz_rounded, color: _muted),
             ),
@@ -882,28 +1249,191 @@ class _CommunityPostCard extends StatelessWidget {
         const SizedBox(height: 12),
         const Divider(height: 1, color: Color(0xFFE9EFEB)),
         const SizedBox(height: 5),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: onLike,
-            icon: Icon(
-              liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-              color: liked ? const Color(0xFFD84343) : _muted,
-              size: 18,
-            ),
-            label: Text(
-              liked ? 'Liked' : 'Like',
-              style: TextStyle(
+        Row(
+          children: [
+            TextButton.icon(
+              key: const Key('community-like-post'),
+              onPressed: onLike,
+              icon: Icon(
+                liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                 color: liked ? const Color(0xFFD84343) : _muted,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
+                size: 18,
+              ),
+              label: Text(
+                '${liked ? 'Liked' : 'Like'} ${post.likes + (liked ? 1 : 0)}',
+                style: TextStyle(
+                  color: liked ? const Color(0xFFD84343) : _muted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
-          ),
+            TextButton.icon(
+              key: const Key('community-comment-post'),
+              onPressed: onComment,
+              icon: const Icon(Icons.mode_comment_outlined, size: 17),
+              label: Text(
+                'Comment ${post.comments.length}',
+                style: const TextStyle(
+                  color: _muted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const Spacer(),
+            IconButton(
+              key: const Key('community-share-post'),
+              tooltip: 'Share post',
+              onPressed: onShare,
+              icon: const Icon(Icons.share_outlined, color: _muted, size: 19),
+            ),
+          ],
         ),
       ],
     ),
   );
+}
+
+class _CommunityCommentsSheet extends StatefulWidget {
+  const _CommunityCommentsSheet({required this.comments});
+
+  final List<String> comments;
+
+  @override
+  State<_CommunityCommentsSheet> createState() =>
+      _CommunityCommentsSheetState();
+}
+
+class _CommunityCommentsSheetState extends State<_CommunityCommentsSheet> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final comment = _controller.text.trim();
+    if (comment.isEmpty) return;
+    Navigator.of(context).pop(comment);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * .82,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 18, 12, 12),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Comments',
+                        style: TextStyle(
+                          color: _ink,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close comments',
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Flexible(
+                child: widget.comments.isEmpty
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(22),
+                          child: Text(
+                            'No comments yet. Start the conversation.',
+                            style: TextStyle(color: _muted, fontSize: 12),
+                          ),
+                        ),
+                      )
+                    : ListView.separated(
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.all(16),
+                        itemCount: widget.comments.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 12),
+                        itemBuilder: (context, index) => Text(
+                          widget.comments[index],
+                          key: const Key('community-comment'),
+                          style: const TextStyle(
+                            color: _ink,
+                            fontSize: 13,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        key: const Key('community-comment-input'),
+                        controller: _controller,
+                        minLines: 1,
+                        maxLines: 4,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: InputDecoration(
+                          hintText: 'Write a comment…',
+                          filled: true,
+                          fillColor: _canvas,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 11,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      key: const Key('community-submit-comment'),
+                      onPressed: _submit,
+                      style: IconButton.styleFrom(
+                        backgroundColor: _cafMaroon,
+                        foregroundColor: Colors.white,
+                      ),
+                      icon: const Icon(Icons.send_rounded, size: 18),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _SelectedMediaThumbnail extends StatelessWidget {
@@ -1390,6 +1920,127 @@ class _FeatureHero extends StatelessWidget {
           child: Icon(icon, color: _cafMaroon, size: 27),
         ),
       ],
+    ),
+  );
+}
+
+class _OfficialVideoCard extends StatelessWidget {
+  const _OfficialVideoCard({
+    required this.title,
+    required this.round,
+    required this.date,
+    required this.youtubeId,
+    required this.source,
+    required this.onTap,
+  });
+
+  final String title;
+  final String round;
+  final String date;
+  final String youtubeId;
+  final String source;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(14),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Stack(
+              fit: StackFit.expand,
+              alignment: Alignment.center,
+              children: [
+                Image.network(
+                  'https://img.youtube.com/vi/$youtubeId/hqdefault.jpg',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: const Color(0xFF183326),
+                    child: const Icon(
+                      Icons.sports_soccer_rounded,
+                      color: Colors.white70,
+                      size: 42,
+                    ),
+                  ),
+                ),
+                const Center(
+                  child: Icon(
+                    Icons.play_circle_fill_rounded,
+                    color: Colors.white,
+                    size: 54,
+                    shadows: [Shadow(color: Colors.black54, blurRadius: 12)],
+                  ),
+                ),
+                Positioned(
+                  right: 9,
+                  bottom: 9,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.72),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: Text(
+                      source,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(13, 12, 13, 13),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        round,
+                        style: const TextStyle(
+                          color: _cafMaroon,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          color: _ink,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        date,
+                        style: const TextStyle(color: _muted, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.open_in_new_rounded, color: _cafMaroon),
+              ],
+            ),
+          ),
+        ],
+      ),
     ),
   );
 }

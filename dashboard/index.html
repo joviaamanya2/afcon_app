@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#10241d" />
+    <title>AFCON Fan | Control Room</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="auth-screen" id="auth-screen" hidden>
+      <section class="auth-card">
+        <a class="brand auth-brand" href="#login"><span class="brand-mark">AF</span><span><b>AFCON FAN</b><small>CONTROL ROOM</small></span></a>
+        <div class="eyebrow" id="auth-eyebrow">SECURE DASHBOARD ACCESS</div>
+        <h1 id="auth-title">Welcome back</h1>
+        <p class="auth-copy" id="auth-copy">Sign in to manage AFCON Fan app content.</p>
+        <form id="auth-form">
+          <div class="field" id="name-field" hidden><label for="auth-name">Your name</label><input id="auth-name" name="name" autocomplete="name" placeholder="e.g. Amina Okello"></div>
+          <div class="field"><label for="auth-email">Email address</label><input id="auth-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com"></div>
+          <div class="field"><label for="auth-password">Password</label><input id="auth-password" name="password" type="password" autocomplete="current-password" required minlength="12" placeholder="At least 12 characters"></div>
+          <button class="button primary auth-submit" id="auth-submit" type="submit">Sign in</button>
+        </form>
+        <p class="auth-switch" id="auth-switch"></p>
+        <div class="auth-error" id="auth-error" role="alert" hidden></div>
+        <div class="auth-connection"><span class="status-dot" id="auth-dot"></span><span id="auth-api-label">Checking API connection…</span><button class="text-button" id="auth-api-settings" type="button">API settings</button></div>
+      </section>
+      <div class="auth-branding"><span>OFFICIAL AFCON FAN CONTROL ROOM</span><b>Competition updates. One trusted source.</b></div>
+    </main>
+
+    <div id="dashboard-shell" hidden>
+    <aside class="sidebar">
+      <a class="brand" href="#overview" aria-label="AFCON Fan Control Room">
+        <span class="brand-mark">AF</span>
+        <span><b>AFCON FAN</b><small>CONTROL ROOM</small></span>
+      </a>
+      <div class="nav-label">WORKSPACE</div>
+      <nav id="navigation" aria-label="Dashboard sections"></nav>
+      <div class="sidebar-bottom"><span class="status-dot"></span><span id="connection-label">Not connected</span></div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div class="crumb"><span>AFCON FAN</span><i>/</i><b id="crumb-title">Overview</b></div>
+        <div class="top-actions"><span class="api-pill" id="api-pill">API offline</span><button class="icon-button" id="settings-button" aria-label="Connection settings">⚙</button><span class="avatar" id="user-avatar">AD</span><button class="text-button" id="logout-button">Sign out</button></div>
+      </header>
+
+      <section class="content" id="page-content"></section>
+    </main>
+    </div>
+
+    <div class="toast" id="toast" role="status"></div>
+    <dialog id="record-dialog">
+      <form id="record-form" method="dialog">
+        <div class="dialog-heading"><div><span class="eyebrow" id="dialog-resource">RECORD</span><h2 id="dialog-title">Add record</h2></div><button class="icon-button" value="cancel" aria-label="Close">×</button></div>
+        <div class="form-grid" id="form-fields"></div>
+        <div class="dialog-actions"><button class="button secondary" value="cancel">Cancel</button><button class="button primary" id="save-record" value="default">Save record</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="api-dialog">
+      <form method="dialog" id="api-settings-form">
+        <div class="dialog-heading"><div><span class="eyebrow">CONNECTION</span><h2>API settings</h2></div><button class="icon-button" value="cancel" aria-label="Close">×</button></div>
+        <p class="settings-hint">Use the backend address the browser can reach. If the dashboard and API are on this computer, use localhost. The admin token is no longer required.</p>
+        <div class="field"><label for="auth-api-url">API base URL</label><input id="auth-api-url" placeholder="http://localhost:8080/api/v1"></div>
+        <div class="dialog-actions"><button class="button secondary" value="cancel">Cancel</button><button class="button primary" id="save-api-url" value="default">Save URL</button></div>
+      </form>
+    </dialog>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

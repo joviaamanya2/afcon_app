@@ -100,6 +100,17 @@ class AfconApi {
     required String matchId,
   }) => _getCollection('match-statistics', {'matchId': matchId});
 
+  Future<Map<String, dynamic>> qualifiers() async {
+    final uri = Uri.parse(
+      '${_baseUrl.replaceFirst(RegExp(r'/$'), '')}/qualifiers',
+    );
+    final response = await _client
+        .get(uri, headers: const {'Accept': 'application/json'})
+        .timeout(const Duration(seconds: 12));
+    final data = _decode(response)['data'];
+    return data is Map<String, dynamic> ? data : const {};
+  }
+
   Future<Map<String, dynamic>> askAssistant({
     required String question,
     String language = 'en',

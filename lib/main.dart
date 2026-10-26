@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'screens/explore_screen.dart';
 import 'screens/afcon_feature_screen.dart';
@@ -52,10 +53,8 @@ class _AfconSplashScreenState extends State<AfconSplashScreen> {
         PageRouteBuilder<void>(
           pageBuilder: (_, _, _) => const AfconHome(),
           transitionDuration: const Duration(milliseconds: 600),
-          transitionsBuilder: (_, animation, _, child) => FadeTransition(
-            opacity: animation,
-            child: child,
-          ),
+          transitionsBuilder: (_, animation, _, child) =>
+              FadeTransition(opacity: animation, child: child),
         ),
       );
     });
@@ -69,94 +68,81 @@ class _AfconSplashScreenState extends State<AfconSplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.92, end: 1),
-                  duration: const Duration(milliseconds: 700),
-                  curve: Curves.easeOutCubic,
-                  builder: (context, scale, child) => Transform.scale(
-                    scale: scale,
-                    child: child,
-                  ),
-                  child: Image.asset(
-                    'assets/images/afcon_logo_clean.png',
-                    width: 270,
-                    height: 270,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, _, _) => const Icon(
-                      Icons.sports_soccer_rounded,
-                      color: _brandMaroon,
-                      size: 100,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.white,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.92, end: 1),
+                    duration: const Duration(milliseconds: 700),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, scale, child) =>
+                        Transform.scale(scale: scale, child: child),
+                    child: Image.asset(
+                      'assets/images/afcon_logo_clean.png',
+                      width: 210,
+                      height: 210,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => const Icon(
+                        Icons.sports_soccer_rounded,
+                        color: _brandMaroon,
+                        size: 100,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'AFCON FAN',
-                  style: TextStyle(
-                    color: _brandMaroon,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 2,
+                  const SizedBox(height: 20),
+                  const Text(
+                    'AFCON FAN',
+                    style: TextStyle(
+                      color: _brandMaroon,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'TOGETHER IN FOOTBALL',
-                  style: TextStyle(
-                    color: _muted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.6,
+                  const SizedBox(height: 6),
+                  const Text(
+                    'TOGETHER IN FOOTBALL',
+                    style: TextStyle(
+                      color: _muted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.6,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: Color(0xFFE9E9E9))),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                'Official Title Sponsor',
-                style: TextStyle(
-                  color: _muted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
+        bottomNavigationBar: SafeArea(
+          top: false,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            decoration: const BoxDecoration(color: Colors.white),
+            child: Image.asset(
+              'assets/images/official_partner_clean.png',
+              width: 68,
+              height: 36,
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => const Text(
+                'TotalEnergies',
+                style: TextStyle(color: _ink, fontWeight: FontWeight.w700),
               ),
-              const SizedBox(width: 12),
-              Image.asset(
-                'assets/images/official_partner_clean.png',
-                width: 86,
-                height: 42,
-                fit: BoxFit.contain,
-                errorBuilder: (_, _, _) => const Text(
-                  'TotalEnergies',
-                  style: TextStyle(
-                    color: _ink,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -278,39 +264,19 @@ class _AfconHomeState extends State<AfconHome> {
             tooltip: 'Notifications',
             onPressed: () => _openShortcut('Notifications'),
             style: IconButton.styleFrom(
-              foregroundColor: _brandMaroon,
-              backgroundColor: const Color(0xFFF5E6E6),
+              foregroundColor: _muted,
+              backgroundColor: Colors.transparent,
               shape: const CircleBorder(),
             ),
-            icon: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                const Icon(Icons.notifications_none_rounded, size: 22),
-                Positioned(
-                  right: -2,
-                  top: -2,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFD84343),
-                      shape: BoxShape.circle,
-                      border: Border.fromBorderSide(
-                        BorderSide(color: Colors.white, width: 1.5),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            icon: const Icon(Icons.notifications_none_rounded, size: 22),
           ),
           Builder(
             builder: (context) => IconButton(
               tooltip: 'Open menu',
               onPressed: () => Scaffold.of(context).openEndDrawer(),
               style: IconButton.styleFrom(
-                foregroundColor: _brandMaroon,
-                backgroundColor: const Color(0xFFF5E6E6),
+                foregroundColor: _muted,
+                backgroundColor: Colors.transparent,
                 shape: const CircleBorder(),
               ),
               icon: const Icon(Icons.menu_rounded),
@@ -384,7 +350,6 @@ class _AfconHomeState extends State<AfconHome> {
                 _HomePage(
                   onOpenMatchCategory: _openMatchCategory,
                   onOpenShortcut: _openShortcut,
-                  language: _selectedLanguage,
                 ),
                 const UpdatesScreen(showBackButton: false),
                 MatchesScreen(
@@ -402,45 +367,166 @@ class _AfconHomeState extends State<AfconHome> {
           ),
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) => setState(() {
-          _selectedIndex = index;
-          if (index == 2) {
-            _selectedMatchCategory = 'All';
-            _matchScreenVersion++;
-          }
-        }),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.article_outlined),
-            selectedIcon: Icon(Icons.article_rounded),
-            label: 'News',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.sports_soccer_outlined),
-            selectedIcon: Icon(Icons.sports_soccer_rounded),
-            label: 'Matches',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.explore_outlined),
-            selectedIcon: Icon(Icons.explore_rounded),
-            label: 'Explore',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.forum_outlined),
-            selectedIcon: Icon(Icons.forum_rounded),
-            label: 'Community',
-          ),
-        ],
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const _SponsorMarquee(),
+            NavigationBar(
+              selectedIndex: _selectedIndex,
+              onDestinationSelected: (index) => setState(() {
+                _selectedIndex = index;
+                if (index == 2) {
+                  _selectedMatchCategory = 'All';
+                  _matchScreenVersion++;
+                }
+              }),
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home_rounded),
+                  label: 'Home',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.article_outlined),
+                  selectedIcon: Icon(Icons.article_rounded),
+                  label: 'News',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.sports_soccer_outlined),
+                  selectedIcon: Icon(Icons.sports_soccer_rounded),
+                  label: 'Matches',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.explore_outlined),
+                  selectedIcon: Icon(Icons.explore_rounded),
+                  label: 'Explore',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.forum_outlined),
+                  selectedIcon: Icon(Icons.forum_rounded),
+                  label: 'Community',
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
+}
+
+const _sponsors = [
+  'TotalEnergies.png',
+  '1XBET.png',
+  'European_Union.png',
+  'Visa.png',
+  'Tecno.png',
+  'Royal_Air_Maroc.png',
+  'Orange.png',
+  'Puma.png',
+  'Suzuki.png',
+  'Danone.png',
+  'Rexona.png',
+  'Lonaci.png',
+  'Midea.png',
+  'Apsonic.png',
+  'eFootball_Konami.png',
+  'Morocco_Kingdom_of_Football.png',
+  'ONCF.png',
+  'OCP.png',
+  'Morocco_Now.png',
+  'AGL.png',
+  'La_vache_qui_rit.png',
+  'Sidiali.png',
+  'Acibadem.png',
+];
+
+const _sponsorLogoFolder = 'assets/images/sponsor_supplier_partner_logos/';
+
+class _SponsorMarquee extends StatefulWidget {
+  const _SponsorMarquee();
+
+  @override
+  State<_SponsorMarquee> createState() => _SponsorMarqueeState();
+}
+
+class _SponsorMarqueeState extends State<_SponsorMarquee>
+    with SingleTickerProviderStateMixin {
+  static const _itemWidth = 92.0;
+  final _trackWidth = _itemWidth * _sponsors.length;
+
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 38),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Widget _sponsorTrack() => Row(
+    children: _sponsors
+        .map(
+          (sponsor) => SizedBox(
+            width: _itemWidth,
+            child: Center(
+              child: ColoredBox(
+                color: Colors.white,
+                child: Image.asset(
+                  '$_sponsorLogoFolder$sponsor',
+                  width: 76,
+                  height: 32,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => const SizedBox(
+                    width: 76,
+                    height: 32,
+                    child: Icon(Icons.broken_image_outlined, size: 18),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        )
+        .toList(growable: false),
+  );
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: 'Official AFCON sponsors',
+    child: ExcludeSemantics(
+      child: Container(
+        height: 50,
+        clipBehavior: Clip.hardEdge,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(
+            top: BorderSide(color: Color(0xFFE9ECEF)),
+            bottom: BorderSide(color: Color(0xFFF1F2F3)),
+          ),
+        ),
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) => Transform.translate(
+            offset: Offset(-_controller.value * _trackWidth, 0),
+            child: child,
+          ),
+          child: OverflowBox(
+            alignment: Alignment.centerLeft,
+            minWidth: 0,
+            maxWidth: double.infinity,
+            child: SizedBox(
+              width: _trackWidth * 2,
+              child: Row(children: [_sponsorTrack(), _sponsorTrack()]),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _BrandMark extends StatelessWidget {
@@ -551,22 +637,20 @@ class _HomePage extends StatelessWidget {
   const _HomePage({
     required this.onOpenMatchCategory,
     required this.onOpenShortcut,
-    required this.language,
   });
 
   final ValueChanged<String> onOpenMatchCategory;
   final ValueChanged<String> onOpenShortcut;
-  final String language;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 30),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
       children: [
-        _QuickLinks(onSelected: onOpenShortcut),
-        const SizedBox(height: 14),
-        _WelcomeBanner(language: language),
+        const _WelcomeBanner(),
         const SizedBox(height: 24),
+        _MatchCenterCards(onOpenCategory: onOpenMatchCategory),
+        const SizedBox(height: 26),
         _SectionHeading(
           title: 'The road to PAMOJA 2027',
           actionLabel: 'View groups',
@@ -576,15 +660,34 @@ class _HomePage extends StatelessWidget {
         _Pamoja2027Card(
           onOpenQualifiers: () => onOpenMatchCategory('Qualifiers'),
         ),
+        const SizedBox(height: 26),
+        _WomensFootballAdvert(onTap: () => onOpenShortcut('Events')),
+        const SizedBox(height: 26),
+        const _SectionLabel(title: 'Explore AFCON'),
+        const SizedBox(height: 12),
+        _QuickLinks(onSelected: onOpenShortcut),
         const SizedBox(height: 24),
         const _TranslationCard(),
-        const SizedBox(height: 24),
-        _MatchCenterCards(onOpenCategory: onOpenMatchCategory),
-        const SizedBox(height: 14),
-        _WomensFootballAdvert(onTap: () => onOpenShortcut('Events')),
       ],
     );
   }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    title,
+    style: const TextStyle(
+      color: _ink,
+      fontSize: 18,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -0.2,
+    ),
+  );
 }
 
 class _WomensFootballAdvert extends StatelessWidget {
@@ -595,39 +698,28 @@ class _WomensFootballAdvert extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
     color: Colors.white,
-    borderRadius: BorderRadius.circular(18),
+    borderRadius: BorderRadius.circular(12),
     child: InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFF0D9E4)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x12000000),
-              blurRadius: 12,
-              offset: Offset(0, 4),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE6EBE7)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                const Icon(
-                  Icons.campaign_rounded,
-                  color: Color(0xFF800000),
-                  size: 17,
-                ),
+                const Icon(Icons.campaign_rounded, color: _muted, size: 17),
                 const SizedBox(width: 7),
                 const Expanded(
                   child: Text(
                     'FEATURED TOURNAMENT',
                     style: TextStyle(
-                      color: Color(0xFF800000),
+                      color: _muted,
                       fontSize: 10,
                       fontWeight: FontWeight.w900,
                       letterSpacing: .8,
@@ -643,13 +735,13 @@ class _WomensFootballAdvert extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             ClipRRect(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
               child: AspectRatio(
-                aspectRatio: 7,
+                aspectRatio: 8,
                 child: Image.asset(
                   'assets/images/new images/media/women.PNG',
                   width: double.infinity,
-                  fit: BoxFit.fill,
+                  fit: BoxFit.cover,
                   semanticLabel: 'CAF Women’s Champions League Egypt 2026, 1–15 November 2026',
                 ),
               ),
@@ -670,7 +762,7 @@ class _WomensFootballAdvert extends StatelessWidget {
                 const Text(
                   'Discover',
                   style: TextStyle(
-                    color: Color(0xFF800000),
+                    color: _brandMaroon,
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                   ),
@@ -678,7 +770,7 @@ class _WomensFootballAdvert extends StatelessWidget {
                 const SizedBox(width: 3),
                 const Icon(
                   Icons.arrow_forward_rounded,
-                  color: Color(0xFF800000),
+                  color: _brandMaroon,
                   size: 15,
                 ),
               ],
@@ -764,15 +856,15 @@ class _MatchCenterCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
     color: Colors.white,
-    borderRadius: BorderRadius.circular(14),
+    borderRadius: BorderRadius.circular(12),
     child: InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        height: 72,
+        height: 68,
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0xFFE6E6E6)),
         ),
         child: Column(
@@ -782,10 +874,10 @@ class _MatchCenterCard extends StatelessWidget {
               width: 30,
               height: 30,
               decoration: BoxDecoration(
-                color: const Color(0xFFF5E6E6),
-                borderRadius: BorderRadius.circular(10),
+                color: const Color(0xFFF1F3F2),
+                borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, color: _brandMaroon, size: 16),
+              child: Icon(icon, color: _muted, size: 16),
             ),
             const SizedBox(height: 5),
             Text(
@@ -807,15 +899,15 @@ class _MatchCenterCard extends StatelessWidget {
 }
 
 class _WelcomeBanner extends StatefulWidget {
-  const _WelcomeBanner({required this.language});
-
-  final String language;
+  const _WelcomeBanner();
 
   @override
   State<_WelcomeBanner> createState() => _WelcomeBannerState();
 }
 
 class _WelcomeBannerState extends State<_WelcomeBanner> {
+  static const _slideDuration = Duration(milliseconds: 720);
+  static const _autoAdvanceDuration = Duration(seconds: 7);
   static const _images = [
     'assets/images/cup.png',
     'assets/images/new images/home screen images/amad-diallo-of-cote-ivoire-is-challenged-by-darlin-yongwa-ngameni-of-cameroon.webp',
@@ -824,49 +916,19 @@ class _WelcomeBannerState extends State<_WelcomeBanner> {
   ];
   static const _headlines = [
     'The AFCON trophy',
-    'African football, live',
-    'The stage for Africa’s best',
-    'A continent united',
+    'A moment from the match',
+    'CAF and African football',
+    'The stadium before kick-off',
   ];
 
   Timer? _rotationTimer;
   int _currentPage = 0;
 
-  String get _todayLabel {
-    final now = DateTime.now();
-    const weekdays = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday',
-    ];
-    const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    return '${weekdays[now.weekday - 1]}, ${now.day} '
-        '${months[now.month - 1]} ${now.year}';
-  }
-
   @override
   void initState() {
     super.initState();
-    _rotationTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (!mounted) return;
-      _showSlide((_currentPage + 1) % _images.length);
+    _rotationTimer = Timer.periodic(_autoAdvanceDuration, (_) {
+      if (mounted) _showSlide(_currentPage + 1);
     });
   }
 
@@ -883,19 +945,12 @@ class _WelcomeBannerState extends State<_WelcomeBanner> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(12),
         color: Colors.white,
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 14,
-            offset: Offset(0, 5),
-          ),
-        ],
       ),
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
-        height: 250,
+        height: 228,
         child: GestureDetector(
           key: const Key('home-hero-image-carousel'),
           onHorizontalDragEnd: (details) {
@@ -906,24 +961,40 @@ class _WelcomeBannerState extends State<_WelcomeBanner> {
             _showSlide(next < 0 ? next + _images.length : next);
           },
           child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 800),
+            duration: _slideDuration,
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: ScaleTransition(
-                scale: Tween<double>(begin: 1.025, end: 1).animate(
-                  CurvedAnimation(parent: animation, curve: Curves.easeOut),
-                ),
-                child: child,
-              ),
+            transitionBuilder: (child, animation) => AnimatedBuilder(
+              animation: animation,
+              child: child,
+              builder: (context, child) {
+                final progress = Curves.easeInOutCubic.transform(
+                  animation.value,
+                );
+                final isOutgoing = animation.status == AnimationStatus.reverse;
+                final offset = isOutgoing
+                    ? Offset(-24 * (1 - progress), 0)
+                    : Offset(24 * (1 - progress), 0);
+                final scale = isOutgoing
+                    ? 1 - 0.025 * (1 - progress)
+                    : 0.975 + 0.025 * progress;
+
+                return Opacity(
+                  opacity: animation.value,
+                  child: Transform.translate(
+                    offset: offset,
+                    child: Transform.scale(scale: scale, child: child),
+                  ),
+                );
+              },
             ),
             child: Stack(
-              key: ValueKey(_images[_currentPage]),
+              key: ValueKey('hero-slide-$_currentPage'),
               fit: StackFit.expand,
               children: [
                 Image.asset(
                   _images[_currentPage],
+                  key: ValueKey(_images[_currentPage]),
                   fit: BoxFit.cover,
                   alignment: Alignment.center,
                 ),
@@ -950,17 +1021,28 @@ class _WelcomeBannerState extends State<_WelcomeBanner> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.94),
-                      borderRadius: BorderRadius.circular(20),
+                      color: Colors.black.withValues(alpha: 0.52),
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Text(
-                      'AFCON  •  ${widget.language.toUpperCase()}',
-                      style: const TextStyle(
-                        color: Color(0xFF800000),
-                        fontSize: 9,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: .5,
-                      ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.sports_soccer_rounded,
+                          color: Colors.white,
+                          size: 13,
+                        ),
+                        SizedBox(width: 5),
+                        Text(
+                          'CAF  •  AFRICA CUP OF NATIONS',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: .7,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -986,48 +1068,36 @@ class _WelcomeBannerState extends State<_WelcomeBanner> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 9),
-                      Container(height: 1, color: Colors.white54),
-                      const SizedBox(height: 7),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _todayLabel,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          Row(
-                            children: List.generate(
-                              _images.length,
-                              (dotIndex) => Semantics(
-                                button: true,
-                                selected: _currentPage == dotIndex,
-                                label: 'Show AFCON image ${dotIndex + 1}',
-                                child: GestureDetector(
-                                  key: Key('home-hero-indicator-$dotIndex'),
-                                  onTap: () => _showSlide(dotIndex),
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 250),
-                                    width: _currentPage == dotIndex ? 16 : 6,
-                                    height: 6,
-                                    margin: const EdgeInsets.only(left: 4),
-                                    decoration: BoxDecoration(
-                                      color: _currentPage == dotIndex
-                                          ? Colors.white
-                                          : Colors.white54,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(
+                            _images.length,
+                            (dotIndex) => Semantics(
+                              button: true,
+                              selected: _currentPage == dotIndex,
+                              label: 'Show AFCON image ${dotIndex + 1}',
+                              child: GestureDetector(
+                                key: Key('home-hero-indicator-$dotIndex'),
+                                onTap: () => _showSlide(dotIndex),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 250),
+                                  width: _currentPage == dotIndex ? 16 : 6,
+                                  height: 6,
+                                  margin: const EdgeInsets.only(left: 4),
+                                  decoration: BoxDecoration(
+                                    color: _currentPage == dotIndex
+                                        ? Colors.white
+                                        : Colors.white54,
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
@@ -1091,115 +1161,112 @@ class _Pamoja2027Card extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onOpenQualifiers,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(12),
         child: Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE8E8E8)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x10000000),
-            blurRadius: 12,
-            offset: Offset(0, 4),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE6EBE7)),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AspectRatio(
-            aspectRatio: 1.3,
-            child: Image.asset(
-              'assets/images/new images/home screen images/afcon_pamoja_q.webp',
-              fit: BoxFit.fill,
-              semanticLabel: 'CAF AFCON PAMOJA 2027 qualifier groups graphic',
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'CAF UPDATE  •  19 MAY 2026',
-            style: TextStyle(
-              color: _brandMaroon,
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-              letterSpacing: .7,
-            ),
-          ),
-          const SizedBox(height: 5),
-          const Text(
-            'The road to East Africa is mapped out',
-            style: TextStyle(
-              color: _ink,
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Forty-eight nations are chasing 21 places at the finals. Hosts Kenya, Tanzania and Uganda qualify automatically.',
-            style: TextStyle(color: _muted, fontSize: 12, height: 1.4),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 7,
-            runSpacing: 7,
-            children: const [
-              _PamojaFactChip(label: '12 groups'),
-              _PamojaFactChip(label: '24 finalists'),
-              _PamojaFactChip(label: '19 Jun – 17 Jul 2027'),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8F0F0),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: const Row(
-              children: [
-                Icon(
-                  Icons.calendar_month_rounded,
-                  color: _brandMaroon,
-                  size: 16,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Image.asset(
+                  'assets/images/new images/home screen images/afcon_pamoja_q.webp',
+                  fit: BoxFit.cover,
+                  semanticLabel:
+                      'CAF AFCON PAMOJA 2027 qualifier groups graphic',
                 ),
-                SizedBox(width: 7),
-                Expanded(
-                  child: Text(
-                    'Next qualifiers: 9–17 November 2026',
-                    style: TextStyle(
-                      color: _ink,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'CAF UPDATE  •  19 MAY 2026',
+                style: TextStyle(
+                  color: _brandMaroon,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: .7,
+                ),
+              ),
+              const SizedBox(height: 5),
+              const Text(
+                'The road to East Africa is mapped out',
+                style: TextStyle(
+                  color: _ink,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Forty-eight nations are chasing 21 places at the finals. Hosts Kenya, Tanzania and Uganda qualify automatically.',
+                style: TextStyle(color: _muted, fontSize: 12, height: 1.4),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 7,
+                runSpacing: 7,
+                children: const [
+                  _PamojaFactChip(label: '12 groups'),
+                  _PamojaFactChip(label: '24 finalists'),
+                  _PamojaFactChip(label: '19 Jun – 17 Jul 2027'),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 9,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8F0F0),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_month_rounded,
+                      color: _brandMaroon,
+                      size: 16,
                     ),
+                    SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        'Next qualifiers: 9–17 November 2026',
+                        style: TextStyle(
+                          color: _ink,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 7),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: onOpenQualifiers,
+                  icon: const Icon(Icons.table_chart_rounded, size: 15),
+                  label: const Text('View qualifiers'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: _brandMaroon,
+                    textStyle: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                    visualDensity: VisualDensity.compact,
                   ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 7),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: onOpenQualifiers,
-              icon: const Icon(Icons.table_chart_rounded, size: 15),
-              label: const Text('View qualifiers'),
-              style: TextButton.styleFrom(
-                foregroundColor: _brandMaroon,
-                textStyle: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                ),
-                visualDensity: VisualDensity.compact,
               ),
-            ),
-          ),
-        ],
+            ],
           ),
         ),
       ),
