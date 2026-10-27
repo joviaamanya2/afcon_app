@@ -5,9 +5,12 @@ import 'package:flutter/services.dart';
 
 import 'screens/explore_screen.dart';
 import 'screens/afcon_feature_screen.dart';
+import 'screens/fan_account_screen.dart';
 import 'screens/matches_screen.dart';
+import 'screens/pamoja_qualifiers_screen.dart';
 import 'screens/teams_players_screen.dart';
 import 'screens/updates_screen.dart';
+import 'screens/womens_champions_league_screen.dart';
 import './screens/afcon_theme.dart';
 import 'services/afcon_api.dart';
 
@@ -19,6 +22,7 @@ const _brandMaroon = Color.fromARGB(255, 136, 2, 9);
 const _ink = Color(0xFF1E1E1E);
 const _muted = Color(0xFF666666);
 const _canvas = Color(0xFFF7F7F7);
+const _appLanguages = ['English', 'Luganda', 'French', 'Swahili'];
 
 class AfconApp extends StatelessWidget {
   const AfconApp({super.key});
@@ -163,6 +167,10 @@ class _AfconHomeState extends State<AfconHome> {
   String _selectedMatchCategory = 'All';
   int _matchScreenVersion = 0;
 
+  void _selectLanguage(String language) {
+    setState(() => _selectedLanguage = language);
+  }
+
   void _openMatchCategory(String category) {
     if (category == 'Stats') {
       Navigator.of(
@@ -178,6 +186,22 @@ class _AfconHomeState extends State<AfconHome> {
   }
 
   void _openShortcut(String title) {
+    if (title == 'Account') {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => const FanAccountScreen()));
+      return;
+    }
+
+    if (title == 'Women’s Champions League') {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => const WomensChampionsLeagueScreen(),
+        ),
+      );
+      return;
+    }
+
     if (title == 'Teams & players') {
       Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -260,6 +284,20 @@ class _AfconHomeState extends State<AfconHome> {
         titleSpacing: 20,
         title: const _BrandMark(),
         actions: [
+          PopupMenuButton<String>(
+            tooltip: 'Choose language',
+            icon: const Icon(Icons.translate_rounded, size: 22),
+            onSelected: _selectLanguage,
+            itemBuilder: (context) => _appLanguages
+                .map(
+                  (language) => CheckedPopupMenuItem<String>(
+                    value: language,
+                    checked: language == _selectedLanguage,
+                    child: Text(language),
+                  ),
+                )
+                .toList(growable: false),
+          ),
           IconButton(
             tooltip: 'Notifications',
             onPressed: () => _openShortcut('Notifications'),
@@ -319,21 +357,41 @@ class _AfconHomeState extends State<AfconHome> {
                 alignment: Alignment.centerLeft,
                 child: _LanguagePicker(
                   selectedLanguage: _selectedLanguage,
-                  onChanged: (language) =>
-                      setState(() => _selectedLanguage = language),
+                  onChanged: _selectLanguage,
                 ),
               ),
               const SizedBox(height: 20),
               const Divider(),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.tune_rounded, color: _brandMaroon),
-                title: const Text('Settings'),
-                subtitle: const Text('Accessibility, data use and privacy'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _openSettings();
-                },
+              Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.account_circle_outlined,
+                    color: _brandMaroon,
+                  ),
+                  title: const Text('Fan account'),
+                  subtitle: const Text(
+                    'Sign in to sync your community activity',
+                  ),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _openShortcut('Account');
+                  },
+                ),
+              ),
+              Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.tune_rounded, color: _brandMaroon),
+                  title: const Text('Settings'),
+                  subtitle: const Text('Accessibility, data use and privacy'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _openSettings();
+                  },
+                ),
               ),
             ],
           ),
@@ -595,8 +653,6 @@ class _LanguagePicker extends StatelessWidget {
   final String selectedLanguage;
   final ValueChanged<String> onChanged;
 
-  static const _languages = ['English', 'Luganda', 'French', 'Swahili'];
-
   @override
   Widget build(BuildContext context) {
     return Semantics(
@@ -617,7 +673,7 @@ class _LanguagePicker extends StatelessWidget {
               fontSize: 12,
               fontWeight: FontWeight.w700,
             ),
-            items: _languages
+            items: _appLanguages
                 .map(
                   (language) =>
                       DropdownMenuItem(value: language, child: Text(language)),
@@ -661,7 +717,9 @@ class _HomePage extends StatelessWidget {
           onOpenQualifiers: () => onOpenMatchCategory('Qualifiers'),
         ),
         const SizedBox(height: 26),
-        _WomensFootballAdvert(onTap: () => onOpenShortcut('Events')),
+        _WomensFootballAdvert(
+          onTap: () => onOpenShortcut('Women’s Champions League'),
+        ),
         const SizedBox(height: 26),
         const _SectionLabel(title: 'Explore AFCON'),
         const SizedBox(height: 12),
@@ -700,6 +758,7 @@ class _WomensFootballAdvert extends StatelessWidget {
     color: Colors.white,
     borderRadius: BorderRadius.circular(12),
     child: InkWell(
+      key: const Key('womens-promo-card'),
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
@@ -727,7 +786,7 @@ class _WomensFootballAdvert extends StatelessWidget {
                   ),
                 ),
                 Icon(
-                  Icons.open_in_new_rounded,
+                  Icons.arrow_forward_rounded,
                   color: Colors.black.withValues(alpha: .45),
                   size: 16,
                 ),
@@ -739,7 +798,7 @@ class _WomensFootballAdvert extends StatelessWidget {
               child: AspectRatio(
                 aspectRatio: 8,
                 child: Image.asset(
-                  'assets/images/new images/media/women.PNG',
+                  'assets/images/women images/seven.PNG',
                   width: double.infinity,
                   fit: BoxFit.cover,
                   semanticLabel: 'CAF Women’s Champions League Egypt 2026, 1–15 November 2026',
@@ -790,10 +849,10 @@ class _MatchCenterCards extends StatelessWidget {
   static const _items = <(String, String, IconData)>[
     ('Live', 'Live', Icons.wifi_tethering_rounded),
     ('Fixtures', 'Fixtures', Icons.calendar_month_rounded),
+    ('Matches', 'Matches', Icons.sports_soccer_rounded),
     ('Results', 'Results', Icons.flag_rounded),
     ('Groups', 'Groups', Icons.table_chart_rounded),
     ('Venues', 'Venues', Icons.stadium_rounded),
-    ('Events & stats', 'Stats', Icons.bar_chart_rounded),
   ];
 
   @override
@@ -858,6 +917,7 @@ class _MatchCenterCard extends StatelessWidget {
     color: Colors.white,
     borderRadius: BorderRadius.circular(12),
     child: InkWell(
+      key: Key('home-match-category-$title'),
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
@@ -1177,11 +1237,19 @@ class _Pamoja2027Card extends StatelessWidget {
             children: [
               AspectRatio(
                 aspectRatio: 16 / 9,
-                child: Image.asset(
-                  'assets/images/new images/home screen images/afcon_pamoja_q.webp',
-                  fit: BoxFit.cover,
-                  semanticLabel:
-                      'CAF AFCON PAMOJA 2027 qualifier groups graphic',
+                child: InkWell(
+                  key: const Key('home-qualifiers-graphic'),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const PamojaQualifiersScreen(),
+                    ),
+                  ),
+                  child: Image.asset(
+                    'assets/images/new images/home screen images/afcon_pamoja_q.webp',
+                    fit: BoxFit.cover,
+                    semanticLabel:
+                        'CAF AFCON PAMOJA 2027 qualifier groups graphic',
+                  ),
                 ),
               ),
               const SizedBox(height: 12),

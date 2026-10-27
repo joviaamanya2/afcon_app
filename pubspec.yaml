@@ -14,6 +14,7 @@ dependencies:
   http: ^1.6.0
   url_launcher: ^6.3.3
   share_plus: ^13.3.1
+  flutter_secure_storage: ^11.2.0
 
 dev_dependencies:
   flutter_test:
@@ -38,6 +39,8 @@ flutter:
     - 'assets/images/new images/home screen images/Cafcon.webp'
     - 'assets/images/new images/home screen images/benjamin-mkapa-stadium_ok.webp'
     - 'assets/images/new images/media/women.PNG'
+    - 'assets/images/women images/'
+    - 'assets/images/new images/news images/'
     - 'assets/images/new images/news images/b26i3fr0265.webp'
     - 'assets/images/new images/news images/caleb-yirenkyi.webp'
     - 'assets/images/new images/news images/morocco-s-midfielder-ismael-saibari-scores-goal-against-brazil.webp'

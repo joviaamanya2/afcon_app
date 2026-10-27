@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../data/caf_pamoja_data.dart';
 import '../services/afcon_api.dart';
 
 const _updatesMaroon = Color(0xFF800000);
 const _updatesInk = Color(0xFF1E1E1E);
 const _updatesMuted = Color(0xFF666666);
+const _defaultNewsImage =
+    'assets/images/new images/news images/b26i3fr0265.webp';
 
 class UpdatesScreen extends StatefulWidget {
   const UpdatesScreen({super.key, this.showBackButton = true});
@@ -154,7 +157,9 @@ class _UpdatesFeedState extends State<_UpdatesFeed> {
             summary: '${article['summary'] ?? ''}',
             body: '${article['body'] ?? ''}',
             imageUrl: article['image_url']?.toString(),
+            fallbackImageAsset: _fallbackNewsImage(article),
             source: article['source']?.toString(),
+            sourceUrl: article['source_url']?.toString(),
             publishedAt: article['published_at']?.toString(),
           ),
         )
@@ -273,7 +278,9 @@ class _Story {
     this.body = '',
     this.imageUrl,
     this.imageAsset,
+    this.fallbackImageAsset,
     this.source,
+    this.sourceUrl,
     this.publishedAt,
   });
 
@@ -285,24 +292,127 @@ class _Story {
   final String body;
   final String? imageUrl;
   final String? imageAsset;
+  final String? fallbackImageAsset;
   final String? source;
+  final String? sourceUrl;
   final String? publishedAt;
 
   String get id => '$category:$title';
 }
 
+String _fallbackNewsImage(Map<String, dynamic> article) {
+  final imageAsset = article['image_asset']?.toString().trim();
+  return imageAsset != null && imageAsset.isNotEmpty
+      ? imageAsset
+      : _defaultNewsImage;
+}
+
+class _StoryImage extends StatelessWidget {
+  const _StoryImage({
+    required this.story,
+    required this.width,
+    required this.height,
+  });
+
+  final _Story story;
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallbackAsset =
+        story.fallbackImageAsset ?? story.imageAsset ?? _defaultNewsImage;
+    final imageAsset = story.imageAsset;
+    if (imageAsset != null && imageAsset.isNotEmpty) {
+      return Image.asset(
+        imageAsset,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => Image.asset(
+          fallbackAsset,
+          width: width,
+          height: height,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+
+    final imageUrl = story.imageUrl?.trim();
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      return Image.network(
+        imageUrl,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => Image.asset(
+          fallbackAsset,
+          width: width,
+          height: height,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+
+    return Image.asset(
+      fallbackAsset,
+      width: width,
+      height: height,
+      fit: BoxFit.cover,
+    );
+  }
+}
+
 const _cafStaticStories = <_Story>[
+  _Story(
+    title: 'Angola defeat Malawi to complete AFCON 2027 Matchday Two',
+    category: 'AFCON',
+    icon: Icons.sports_soccer_rounded,
+    colors: [Color(0xFF157A50), Color(0xFF1E4771)],
+    summary: 'Angola beat Malawi 3–1 in Luanda on 6 October, finishing the second round of PAMOJA 2027 qualifiers.',
+    body: 'CAF reports that Milson, Mabululu and Miro scored for Angola. The result left Angola unbeaten after two matches and level on four points with Egypt in Group B.',
+    imageUrl:
+        'https://www.cafonline.com/media/vknjc3fe/b26ixfr0185.jpg?width=600',
+    fallbackImageAsset: 'assets/images/new images/news images/b26ixfr0185.webp',
+    source: 'CAF Online',
+    sourceUrl: cafAngolaMalawiSource,
+    publishedAt: '6 Oct 2026',
+  ),
+  _Story(
+    title: 'CAF reviews the AFCON 2027 qualifier groups after Matchday Two',
+    category: 'AFCON',
+    icon: Icons.table_chart_rounded,
+    colors: [Color(0xFF157A50), Color(0xFF1E4771)],
+    summary: 'CAF’s group review reports second-round results across the 12 PAMOJA qualifier groups and identifies the teams that began with two wins.',
+    body: 'The CAF report highlights perfect starts for Morocco, Côte d’Ivoire, The Gambia, South Africa, DR Congo, Rwanda, Mali and Guinea-Bissau. It also notes Egypt, Senegal and Algeria remained unbeaten after two rounds.',
+    imageUrl: 'https://www.cafonline.com/media/g4sp3jfu/brahim-abdelkader-diaz-of-morocco-celebrates-goal-during-the-2027-africa-cup-of-nations-qualifiers-match-between-lesotho-and-morocco-at-free-state-stadium.jpg?width=600',
+    fallbackImageAsset:
+        'assets/images/new images/news images/ismael-saibari-of-morocco.webp',
+    source: 'CAF Online',
+    sourceUrl: cafAfcon2027ResultsSource,
+    publishedAt: '2 Oct 2026',
+  ),
+  _Story(
+    title: 'Guinea edge co-hosts Kenya in AFCON 2027 qualifier',
+    category: 'AFCON',
+    icon: Icons.sports_soccer_rounded,
+    colors: [Color(0xFF157A50), Color(0xFF1E4771)],
+    summary: 'Serhou Guirassy scored the only goal as Guinea beat Kenya 1–0 in Conakry on 1 October.',
+    body: 'CAF reports the goal came in the 32nd minute at the 28 September Stadium. The result gave Guinea their first points in Group D; South Africa led the group after two rounds.',
+    imageUrl: 'https://www.cafonline.com/media/33eknmcv/serhou-guirassy-of-guinea-l-celebrates-goal-with-teammates-during-the-2025-africa-cup-of-nations-qualifiers-match-between-ethiopia-and-guinea.jpg?width=600',
+    fallbackImageAsset: 'assets/images/new images/news images/b26i3fr0265.webp',
+    source: 'CAF Online',
+    sourceUrl: cafGuineaKenyaSource,
+    publishedAt: '1 Oct 2026',
+  ),
   _Story(
     title: 'Benin hold off Mauritania as Mali, Côte d’Ivoire collect wins',
     category: 'AFCON',
     icon: Icons.sports_soccer_rounded,
     colors: [Color(0xFF157A50), Color(0xFF1E4771)],
-    summary:
-        'Benin beat Mauritania 2–1, Mali edged Liberia 1–0 and Côte d’Ivoire scored twice late to defeat Somalia. Congo and Cameroon shared a 1–1 draw in the AFCON 2027 qualifiers.',
-    body:
-        'Benin held on for a 2–1 win after a late Mauritanian penalty made the closing stages tense. Mali found the only goal against Liberia in the 79th minute, while Côte d’Ivoire broke Somalia’s resistance with goals in the 89th minute and stoppage time. Congo and Cameroon drew 1–1.',
-    imageAsset:
-        'assets/images/new images/news images/b26i3fr0265.webp',
+    summary: 'Benin beat Mauritania 2–1, Mali edged Liberia 1–0 and Côte d’Ivoire scored twice late to defeat Somalia. Congo and Cameroon shared a 1–1 draw in the AFCON 2027 qualifiers.',
+    body: 'Benin held on for a 2–1 win after a late Mauritanian penalty made the closing stages tense. Mali found the only goal against Liberia in the 79th minute, while Côte d’Ivoire broke Somalia’s resistance with goals in the 89th minute and stoppage time. Congo and Cameroon drew 1–1.',
+    imageAsset: 'assets/images/new images/news images/b26i3fr0265.webp',
     source: 'CAF Online',
     publishedAt: '29 Sep 2026',
   ),
@@ -311,12 +421,9 @@ const _cafStaticStories = <_Story>[
     category: 'AFCON',
     icon: Icons.groups_rounded,
     colors: [Color(0xFF157A50), Color(0xFF1E4771)],
-    summary:
-        'CAF highlighted emerging talent ahead of the qualifying campaign, including Ghana midfielder Caleb Yirenkyi, who joined Coventry City in August 2026.',
-    body:
-        'The AFCON PAMOJA 2027 group qualifiers bring 48 countries into the race for a place at the finals. CAF’s players to watch include young internationals from across the continent. Ghana’s Caleb Yirenkyi, a versatile 20-year-old midfielder, was named Danish Superliga Young Player of the Year for 2025/26 before moving to Coventry City.',
-    imageAsset:
-        'assets/images/new images/news images/caleb-yirenkyi.webp',
+    summary: 'CAF highlighted emerging talent ahead of the qualifying campaign, including Ghana midfielder Caleb Yirenkyi, who joined Coventry City in August 2026.',
+    body: 'The AFCON PAMOJA 2027 group qualifiers bring 48 countries into the race for a place at the finals. CAF’s players to watch include young internationals from across the continent. Ghana’s Caleb Yirenkyi, a versatile 20-year-old midfielder, was named Danish Superliga Young Player of the Year for 2025/26 before moving to Coventry City.',
+    imageAsset: 'assets/images/new images/news images/caleb-yirenkyi.webp',
     source: 'CAF Online',
     publishedAt: '23 Sep 2026',
   ),
@@ -325,12 +432,9 @@ const _cafStaticStories = <_Story>[
     category: 'World Cup',
     icon: Icons.public_rounded,
     colors: [Color(0xFF157A50), Color(0xFF1E4771)],
-    summary:
-        'Morocco opened their 2026 FIFA World Cup campaign with a 1–1 draw against Brazil. Ismael Saibari scored for the Atlas Lions before Brazil equalised.',
-    body:
-        'Ismael Saibari put Morocco ahead in the 21st minute after a through ball from Brahim Diaz. Brazil responded through Vinicius Junior eleven minutes later. Both sides had chances after the break, but the match finished 1–1 in Group C.',
-    imageAsset:
-        'assets/images/new images/news images/morocco-s-midfielder-ismael-saibari-scores-goal-against-brazil.webp',
+    summary: 'Morocco opened their 2026 FIFA World Cup campaign with a 1–1 draw against Brazil. Ismael Saibari scored for the Atlas Lions before Brazil equalised.',
+    body: 'Ismael Saibari put Morocco ahead in the 21st minute after a through ball from Brahim Diaz. Brazil responded through Vinicius Junior eleven minutes later. Both sides had chances after the break, but the match finished 1–1 in Group C.',
+    imageAsset: 'assets/images/new images/news images/morocco-s-midfielder-ismael-saibari-scores-goal-against-brazil.webp',
     source: 'CAF Online',
     publishedAt: '14 Jun 2026',
   ),
@@ -419,21 +523,7 @@ class _StoryTile extends StatelessWidget {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(5),
-                child: story.imageAsset != null
-                    ? Image.asset(
-                        story.imageAsset!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) =>
-                            Icon(story.icon, color: Colors.white, size: 38),
-                      )
-                    : story.imageUrl != null && story.imageUrl!.isNotEmpty
-                    ? Image.network(
-                        story.imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) =>
-                            Icon(story.icon, color: Colors.white, size: 38),
-                      )
-                    : Icon(story.icon, color: Colors.white, size: 38),
+                child: _StoryImage(story: story, width: 112, height: 88),
               ),
             ),
             const SizedBox(width: 12),
@@ -642,23 +732,11 @@ class _ArticleScreenState extends State<_ArticleScreen> {
                   const SizedBox(height: 14),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(2),
-                    child: story.imageAsset != null
-                        ? Image.asset(
-                            story.imageAsset!,
-                            width: double.infinity,
-                            height: 205,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                          )
-                        : story.imageUrl == null || story.imageUrl!.isEmpty
-                        ? const SizedBox.shrink()
-                        : Image.network(
-                            story.imageUrl!,
-                            width: double.infinity,
-                            height: 205,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                          ),
+                    child: _StoryImage(
+                      story: story,
+                      width: double.infinity,
+                      height: 205,
+                    ),
                   ),
                   const SizedBox(height: 5),
                   const Center(
@@ -748,6 +826,17 @@ class _ArticleScreenState extends State<_ArticleScreen> {
                       height: 1.6,
                     ),
                   ),
+                  if (story.source?.isNotEmpty == true) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Source: ${story.source} · Story content is available in this app.',
+                      style: const TextStyle(
+                        color: _updatesMuted,
+                        fontSize: 11,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 18),
                   Wrap(
                     crossAxisAlignment: WrapCrossAlignment.center,
@@ -919,7 +1008,7 @@ class _ArticleScreenState extends State<_ArticleScreen> {
               IconButton(
                 tooltip: 'Share article',
                 onPressed: _showShareMessage,
-                icon: const Icon(Icons.open_in_new_rounded),
+                icon: const Icon(Icons.share_rounded),
               ),
             ],
           ),

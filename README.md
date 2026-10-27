@@ -6,14 +6,18 @@ A Flutter football companion app focused on African national team football. The 
 
 - **Home:** tournament highlights, match-centre entry point, local events and language support.
 - **Match centre:** date navigation, match search, live matches, fixtures, results, groups, standings and venue guide.
-- **Teams & players:** team browsing, player profiles, season selection and statistical rankings.
-- **Explore:** competitions, tables, rankings and regional discovery.
+- The venue guide includes Hoima City Stadium and selected stadiums in Uganda, Kenya and Tanzania, with capacity, pitch, opening year and coordinates where available. Listing a venue does not confirm that it will host an AFCON 2027 match; venue capacities and planned details may change.
+- The Matches > Fixtures screen and Explore show the same CAF-published AFCON PAMOJA 2027 Matchday 3 pairings. Exact match dates, kick-off times and stadiums stay marked as unconfirmed until CAF publishes them; published API fixtures take precedence.
+- AFCON PAMOJA 2027 qualifier groups, Matchday 2 results, and Matchday 3 pairings are bundled from CAF reports. This verified snapshot is not a live feed; exact fixture dates, kick-off times, stadiums, and full squads are shown as unavailable until CAF publishes them.
+- Tapping the AFCON qualifier graphics opens an interactive Groups, Draw Pots and Table view with team search and sortable records.
+- **Teams & players:** regional national-team browsing; profiles and rankings use published backend records only.
+- **Explore:** CAF competition discovery, AFCON qualifier groups and fixtures, verified tournament history, and unavailable states where no verified competition feed is connected.
 - **Updates and media:** news categories, match reports, highlights and playback entry points.
 - **Fan tools:** followed teams, notification preferences, multilingual help, community and accessibility settings.
 
 ## Data needed for a production release
 
-The app currently has preview content and does not connect to an official match or news source. Do not treat sample content as current competition information. Connect a verified data provider or an editorial CMS before publishing live facts.
+The app includes a CAF-sourced AFCON PAMOJA 2027 qualifier snapshot, last checked against CAF reports published through 6 October 2026. Other competition standings, fixtures, squads, player stats and live match data depend on the configured API/CMS and remain unavailable until verified records are published. The bundled snapshot is not refreshed automatically. Connect a verified, licensed data provider or editorial CMS before presenting live facts.
 
 ### Match centre
 
@@ -56,9 +60,9 @@ The app currently has preview content and does not connect to an official match 
 
 ## Backend
 
-The TypeScript API scaffold, PostgreSQL schema, Flutter API client, and local setup steps are in [backend/README.md](backend/README.md). Configure `AFCON_API_URL` with a Dart define for the phone or emulator. The assistant and voice translation controls now call the API and show its actual setup status; they remain unavailable until provider adapters and credentials are configured.
+The TypeScript API scaffold, PostgreSQL schema, Flutter API client, and local setup steps are in [backend/README.md](../backend/README.md). Configure `AFCON_API_URL` with a Dart define for the phone or emulator. Ask AFCON is powered by DeepSeek when `AI_PROVIDER_API_KEY` is configured in the backend; voice translation remains unavailable until its speech and translation providers are connected.
 
-The app reads published matches, standings, venues, team rosters, articles, events, media and AFCON PAMOJA qualifier details from the backend. The browser control room at `dashboard/` uses the initial owner account and session login to manage content through protected API endpoints. See [backend/README.md](backend/README.md) and [dashboard/README.md](dashboard/README.md) to run both. On an Android emulator, the app defaults to the host API at `10.0.2.2:8080`; for a physical phone, pass the computer's LAN address with `--dart-define=AFCON_API_URL=http://YOUR_COMPUTER_IP:8080/api/v1`.
+The app reads published matches, standings, venues, team rosters, articles, events, media and AFCON PAMOJA qualifier details from the backend. Ask AFCON answers from published records and shows source labels. The browser control room at `../dashboard/` uses the initial owner account and session login to manage content through protected API endpoints. See [backend/README.md](../backend/README.md) and [dashboard/README.md](../dashboard/README.md) to run both. On an Android emulator, the app defaults to the host API at `10.0.2.2:8080`; for a physical phone, pass the computer's LAN address with `--dart-define=AFCON_API_URL=http://YOUR_COMPUTER_IP:8080/api/v1`.
 
 ## Run
 

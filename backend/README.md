@@ -31,7 +31,7 @@ Run the Vite dashboard from the `dashboard` folder with `npm.cmd install` and `n
 - `GET /api/v1/news`, `events`, `media`
 - `GET /api/v1/match-events?matchId=`, `lineups?matchId=`, `match-statistics?matchId=`
 - `GET /api/v1/qualifiers` for AFCON PAMOJA 2027 groups, hosts, key dates and bundled image asset paths
-- `POST /api/v1/assistant/ask` and `POST /api/v1/translation/sessions` return a clear not-configured response until provider adapters are added
+- `POST /api/v1/assistant/ask` answers from published football data when `AI_PROVIDER_API_KEY` is configured; see the [backend setup guide](../../backend/README.md). The translation endpoint remains unavailable until its speech and translation providers are connected.
 
 The Flutter Qualifiers tab reads facts and dates from `/api/v1/qualifiers`; bundled draw graphics remain available offline.
 

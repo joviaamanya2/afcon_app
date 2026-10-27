@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../data/caf_pamoja_data.dart';
 import '../data/pamoja_match_data.dart';
 import '../services/afcon_api.dart';
+import 'pamoja_qualifiers_screen.dart';
 
 /// Match centre for fixtures, live coverage, results, groups and venue data.
-/// Match content is intentionally sourced from an API/CMS before being shown;
+/// Match content comes from the API or a clearly attributed historical archive;
 /// this screen never presents invented fixtures as official.
 class MatchesScreen extends StatefulWidget {
   const MatchesScreen({
@@ -28,6 +30,7 @@ class _MatchesScreenState extends State<MatchesScreen>
     'Live',
     'Qualifiers',
     'Fixtures',
+    'Matches',
     'Results',
     'Groups',
     'Standings',
@@ -407,7 +410,11 @@ class _QualifierGraphic extends StatelessWidget {
   void _openImage(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => _QualifierImageViewer(title: title, asset: asset),
+        builder: (_) => PamojaQualifiersScreen(
+          initialView: title.toLowerCase().contains('pot')
+              ? 'Draw Pots'
+              : 'Groups',
+        ),
       ),
     );
   }
@@ -443,12 +450,15 @@ class _QualifierGraphic extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
+            key: Key('qualifier-graphic-$asset'),
             onTap: () => _openImage(context),
             child: AspectRatio(
               aspectRatio: 16 / 9,
               child: Image.asset(
                 asset,
                 fit: BoxFit.contain,
+                semanticLabel:
+                    '$title. Tap to explore the groups, draw pots and table.',
                 errorBuilder: (_, _, _) => const Center(
                   child: Icon(
                     Icons.broken_image_outlined,
@@ -467,36 +477,12 @@ class _QualifierGraphic extends StatelessWidget {
             Icon(Icons.zoom_in_rounded, size: 15, color: Color(0xFF800000)),
             SizedBox(width: 4),
             Text(
-              'Tap image to expand',
+              'Tap image to explore groups and draw pots',
               style: TextStyle(color: Color(0xFF800000), fontSize: 10),
             ),
           ],
         ),
       ],
-    ),
-  );
-}
-
-class _QualifierImageViewer extends StatelessWidget {
-  const _QualifierImageViewer({required this.title, required this.asset});
-
-  final String title;
-  final String asset;
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: Colors.white,
-    appBar: AppBar(
-      backgroundColor: Colors.white,
-      foregroundColor: const Color(0xFF1E1E1E),
-      title: Text(title),
-    ),
-    body: Center(
-      child: InteractiveViewer(
-        minScale: 1,
-        maxScale: 4,
-        child: Image.asset(asset, fit: BoxFit.contain),
-      ),
     ),
   );
 }
@@ -572,9 +558,13 @@ class _MatchListState extends State<_MatchList> {
           future: _matches,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator()),
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const LinearProgressIndicator(),
+                  const SizedBox(height: 12),
+                  _OfficialDataPreview(category: category),
+                ],
               );
             }
             if (snapshot.hasError) {
@@ -591,6 +581,40 @@ class _MatchListState extends State<_MatchList> {
             }
             if (records.isEmpty) {
               return _OfficialDataPreview(category: category);
+            }
+            if (category == 'Matches') {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const _MatchStatusMessage(
+                      icon: Icons.sports_soccer_rounded,
+                      title: 'Upcoming, live and completed matches',
+                      message: 'Fixtures are games scheduled to take place. Matches include games that are upcoming, in progress or finished.',
+                    ),
+                    for (final record in records)
+                      _BackendMatchCard(record: record),
+                  ],
+                ),
+              );
+            }
+            if (category == 'Fixtures') {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const _MatchStatusMessage(
+                      icon: Icons.event_note_rounded,
+                      title: 'Published fixtures',
+                      message: 'Showing fixtures from the match feed. Preview pairings appear when no published fixtures are available.',
+                    ),
+                    for (final record in records)
+                      _BackendMatchCard(record: record),
+                  ],
+                ),
+              );
             }
             if (category == 'Venues') {
               return Padding(
@@ -676,6 +700,8 @@ class _AllMatchCentreContent extends StatelessWidget {
         const _MatchCentreSectionTitle('Live video'),
         const SizedBox(height: 9),
         const _LiveVideoCard(),
+        const SizedBox(height: 18),
+        const _CafQualifierResults(),
         if (records.isNotEmpty) ...[
           const SizedBox(height: 18),
           const _MatchCentreSectionTitle('Fixtures and results'),
@@ -755,7 +781,11 @@ class _LiveMatchContent extends StatelessWidget {
         const _LiveVideoCard(),
         const SizedBox(height: 18),
         if (records.isEmpty) ...[
-          const _SampleLineupPreview(),
+          const _MatchStatusMessage(
+            icon: Icons.sensors_off_rounded,
+            title: 'No live AFCON qualifier matches',
+            message: 'CAF has not published a live match for this matchday. Matchday 3 qualifiers are scheduled in the 9–17 November 2026 window.',
+          ),
         ] else ...[
           const Text(
             'Live match line-ups',
@@ -772,121 +802,6 @@ class _LiveMatchContent extends StatelessWidget {
             const SizedBox(height: 12),
           ],
         ],
-      ],
-    ),
-  );
-}
-
-class _LineupPlayer {
-  const _LineupPlayer(this.name, this.position, this.number);
-
-  final String name;
-  final String position;
-  final String number;
-}
-
-class _SampleLineupPreview extends StatelessWidget {
-  const _SampleLineupPreview();
-
-  static const _ghana = [
-    _LineupPlayer('Mohammed Kudus', 'Midfielder', '20'),
-    _LineupPlayer('Thomas Partey', 'Midfielder', '5'),
-    _LineupPlayer('Jordan Ayew', 'Forward', '9'),
-  ];
-  static const _uganda = [
-    _LineupPlayer('Denis Onyango', 'Goalkeeper', '18'),
-    _LineupPlayer('Khalid Aucho', 'Midfielder', '8'),
-    _LineupPlayer('Rogers Mato', 'Forward', '17'),
-  ];
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      const Text(
-        'Line-up preview',
-        key: Key('live-lineup-preview'),
-        style: TextStyle(
-          color: Color(0xFF1E1E1E),
-          fontSize: 18,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-      const SizedBox(height: 4),
-      const Text(
-        'Ghana vs Uganda · Sample player preview only; this is not a confirmed fixture or official starting line-up.',
-        style: TextStyle(color: Color(0xFF66716B), fontSize: 11, height: 1.45),
-      ),
-      const SizedBox(height: 10),
-      _LineupTeamCard(team: 'Ghana', players: _ghana),
-      const SizedBox(height: 8),
-      _LineupTeamCard(team: 'Uganda', players: _uganda),
-    ],
-  );
-}
-
-class _LineupTeamCard extends StatelessWidget {
-  const _LineupTeamCard({required this.team, required this.players});
-
-  final String team;
-  final List<_LineupPlayer> players;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: const Color(0xFFE6EBE7)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          team,
-          style: const TextStyle(
-            color: Color(0xFF176B46),
-            fontSize: 14,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 6),
-        for (final player in players)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 26,
-                  child: Text(
-                    player.number,
-                    style: const TextStyle(
-                      color: Color(0xFF66716B),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    player.name,
-                    style: const TextStyle(
-                      color: Color(0xFF1E1E1E),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                Text(
-                  player.position,
-                  style: const TextStyle(
-                    color: Color(0xFF66716B),
-                    fontSize: 10,
-                  ),
-                ),
-              ],
-            ),
-          ),
       ],
     ),
   );
@@ -1303,17 +1218,26 @@ class _OfficialDataPreview extends StatelessWidget {
     if (category == 'Live') {
       return const _LiveMatchContent();
     }
-    if (category == 'Results') {
+    if (category == 'Matches') {
       return const Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _QualificationRulesCard(),
-          _SourceAttribution(
-            source:
-                'Competition format: CAF PAMOJA 2027 qualifier announcement.',
+          _MatchStatusMessage(
+            icon: Icons.sports_soccer_rounded,
+            title: 'Upcoming, live and completed matches',
+            message: 'Fixtures are games scheduled to take place. Matches include games that are upcoming, in progress or finished. Select a date to view published match details.',
           ),
+          _CafQualifierResults(),
+          SizedBox(height: 12),
+          _CafUpcomingFixtures(),
         ],
       );
+    }
+    if (category == 'Results') {
+      return const _CafQualifierResults();
+    }
+    if (category == 'Fixtures') {
+      return const _CafUpcomingFixtures();
     }
     if (category == 'Standings') {
       return const Column(
@@ -1329,7 +1253,7 @@ class _OfficialDataPreview extends StatelessWidget {
     if (category == 'Venues') {
       return const _OfficialVenuePreview();
     }
-    if (category != 'All' && category != 'Fixtures') {
+    if (category != 'All') {
       return const Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1342,22 +1266,177 @@ class _OfficialDataPreview extends StatelessWidget {
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const _MatchStatusMessage(
-          icon: Icons.event_note_rounded,
-          title: 'Official qualifying windows',
-          message: 'CAF has published the international windows. These are date ranges, not confirmed individual fixtures.',
-        ),
-        for (final window in pamojaQualifierWindows)
-          _QualifierWindowCard(window: window),
-        const _SourceAttribution(
-          source: 'Schedule source: CAF official qualifier announcement.',
-        ),
-      ],
+    return const _OfficialQualifyingWindowsPreview();
+  }
+}
+
+class _CafUpcomingFixtures extends StatelessWidget {
+  const _CafUpcomingFixtures();
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const _MatchCentreSectionTitle('AFCON PAMOJA 2027 · Matchday 3'),
+      const SizedBox(height: 4),
+      const Text(
+        'CAF lists these pairings for the 9–17 November 2026 qualifier window. Exact dates, kick-off times and stadiums have not been announced.',
+        style: TextStyle(color: Color(0xFF666666), fontSize: 11, height: 1.4),
+      ),
+      const SizedBox(height: 12),
+      for (final fixture in cafAfcon2027UpcomingFixtures)
+        _CafQualifierMatchCard(match: fixture),
+      const _SourceAttribution(
+        source: 'Source: CAF AFCON PAMOJA 2027 qualifier coverage.',
+      ),
+    ],
+  );
+}
+
+class _CafQualifierResults extends StatelessWidget {
+  const _CafQualifierResults();
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const _MatchCentreSectionTitle('AFCON PAMOJA 2027 · Matchday 2 results'),
+      const SizedBox(height: 4),
+      const Text(
+        'Scores reported by CAF. The exact match dates and stadiums are not included in this results summary.',
+        style: TextStyle(color: Color(0xFF666666), fontSize: 11, height: 1.4),
+      ),
+      const SizedBox(height: 12),
+      for (final match in cafAfcon2027QualifierResults)
+        _CafQualifierMatchCard(match: match),
+      const _SourceAttribution(
+        source:
+            'Source: CAF AFCON PAMOJA 2027 Matchday 2 group-by-group report.',
+      ),
+    ],
+  );
+}
+
+class _CafQualifierMatchCard extends StatelessWidget {
+  const _CafQualifierMatchCard({required this.match});
+
+  final CafQualifierMatch match;
+
+  @override
+  Widget build(BuildContext context) {
+    final completed = match.hasScore;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: const Color(0xFFE6E6E6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  match.home,
+                  style: const TextStyle(
+                    color: Color(0xFF1E1E1E),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Text(
+                match.hasScore
+                    ? '${match.homeScore} – ${match.awayScore}'
+                    : 'VS',
+                style: const TextStyle(
+                  color: Color(0xFF800000),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  match.away,
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(
+                    color: Color(0xFF1E1E1E),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Group ${match.group} · ${match.dateLabel}',
+                  style: const TextStyle(
+                    color: Color(0xFF666666),
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+              if (completed)
+                const Text(
+                  'COMPLETED',
+                  style: TextStyle(
+                    color: Color(0xFF376B4B),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+            ],
+          ),
+          if (!completed) ...[
+            const SizedBox(height: 4),
+            const Text(
+              'Kick-off: To be confirmed · Stadium: To be confirmed',
+              style: TextStyle(color: Color(0xFF666666), fontSize: 11),
+            ),
+          ],
+          if (completed)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                key: Key('match-watch-${match.home}-${match.away}'),
+                onPressed: () =>
+                    _watchMatchOnYoutube(context, match.home, match.away),
+                icon: const Icon(Icons.smart_display_outlined, size: 18),
+                label: const Text('Watch on YouTube'),
+              ),
+            ),
+        ],
+      ),
     );
   }
+}
+
+class _OfficialQualifyingWindowsPreview extends StatelessWidget {
+  const _OfficialQualifyingWindowsPreview();
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const _MatchStatusMessage(
+        icon: Icons.event_note_rounded,
+        title: 'Official qualifying windows',
+        message: 'CAF has published the international windows. These are date ranges, not confirmed individual fixtures.',
+      ),
+      for (final window in pamojaQualifierWindows)
+        _QualifierWindowCard(window: window),
+      const _SourceAttribution(
+        source: 'Schedule source: CAF official qualifier announcement.',
+      ),
+    ],
+  );
 }
 
 class _QualifierWindowCard extends StatelessWidget {
@@ -1419,6 +1498,27 @@ class _OfficialVenuePreview extends StatelessWidget {
         title: 'Akii-Bua Olympic Stadium',
         location: 'Lira City, Uganda',
         detail: 'One of three national stadiums presented to CAF. Planned capacity: 20,000 upon completion.',
+        capacity: '20,000 planned',
+        opened: 'Under development',
+        coordinates: 'Not published',
+      ),
+      const SizedBox(height: 10),
+      const _VenueDetailsCard(
+        title: 'Hoima City Stadium',
+        location: 'Hoima City, Uganda',
+        detail: 'A modern multi-purpose stadium in western Uganda. AFCON 2027 match allocation is not confirmed.',
+        capacity: '20,000',
+        opened: '2025',
+        coordinates: '1.43556° N, 31.39389° E',
+      ),
+      const SizedBox(height: 10),
+      const _VenueDetailsCard(
+        title: 'St Mary’s Stadium (Kitende)',
+        location: 'Kitende, Uganda',
+        detail: 'A football stadium near Kampala. AFCON 2027 match allocation is not confirmed.',
+        capacity: 'Not confirmed',
+        opened: 'Not published',
+        coordinates: 'Not published',
       ),
       const SizedBox(height: 10),
       const _VenueImageCard(
@@ -1427,6 +1527,9 @@ class _OfficialVenuePreview extends StatelessWidget {
         detail: 'Stadium spotlight from a PAMOJA host country. Match allocation details are not shown.',
         asset: 'assets/images/new images/home screen images/benjamin-mkapa-stadium_ok.webp',
         imageLabel: 'Benjamin Mkapa Stadium',
+        capacity: '60,000',
+        opened: '2007',
+        coordinates: '6.8536° S, 39.2738° E',
       ),
       const SizedBox(height: 10),
       const _VenueImageCard(
@@ -1435,9 +1538,39 @@ class _OfficialVenuePreview extends StatelessWidget {
         detail: 'Stadium spotlight from a PAMOJA host country. Match allocation details are not shown.',
         asset: 'assets/images/new images/mandela stadium.PNG',
         imageLabel: 'Mandela National Stadium',
+        capacity: '45,000 (listed)',
+        opened: '1997',
+        coordinates: '0.34778° N, 32.65917° E',
+      ),
+      const SizedBox(height: 10),
+      const _VenueDetailsCard(
+        title: 'Amaan Stadium',
+        location: 'Zanzibar City, Tanzania',
+        detail: 'A multi-purpose stadium in Zanzibar. AFCON 2027 match allocation is not confirmed.',
+        capacity: '15,000',
+        opened: '1970',
+        coordinates: '6.16600° S, 39.22386° E',
+      ),
+      const SizedBox(height: 10),
+      const _VenueDetailsCard(
+        title: 'Moi International Sports Centre (Kasarani)',
+        location: 'Nairobi, Kenya',
+        detail: 'A major sports complex in Nairobi. AFCON 2027 match allocation is not confirmed.',
+        capacity: '48,063 (main stadium)',
+        opened: '1987',
+        coordinates: '1.22806° S, 36.89056° E',
+      ),
+      const SizedBox(height: 10),
+      const _VenueDetailsCard(
+        title: 'Nyayo National Stadium',
+        location: 'Nairobi, Kenya',
+        detail: 'A multi-purpose stadium in Nairobi. AFCON 2027 match allocation is not confirmed.',
+        capacity: '18,000 (listed)',
+        opened: '1983',
+        coordinates: '1.30361° S, 36.82417° E',
       ),
       const _SourceAttribution(
-        source: 'Akii-Bua profile: PAMOJA publication. Other photos are host-country stadium spotlights.',
+        source: 'Venue reference pages: Hoima City Stadium, Amaan Stadium, Benjamin Mkapa Stadium, Mandela National Stadium, Kasarani and Nyayo. Akii-Bua planned details: PAMOJA publication. Capacities may change; venue listings do not confirm AFCON 2027 match allocations.',
       ),
     ],
   );
@@ -1448,11 +1581,17 @@ class _VenueDetailsCard extends StatelessWidget {
     required this.title,
     required this.location,
     required this.detail,
+    required this.capacity,
+    required this.opened,
+    required this.coordinates,
   });
 
   final String title;
   final String location;
   final String detail;
+  final String capacity;
+  final String opened;
+  final String coordinates;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -1491,6 +1630,12 @@ class _VenueDetailsCard extends StatelessWidget {
             height: 1.4,
           ),
         ),
+        const SizedBox(height: 8),
+        _VenueFacts(
+          capacity: capacity,
+          opened: opened,
+          coordinates: coordinates,
+        ),
       ],
     ),
   );
@@ -1503,6 +1648,9 @@ class _VenueImageCard extends StatelessWidget {
     required this.detail,
     required this.asset,
     required this.imageLabel,
+    required this.capacity,
+    required this.opened,
+    required this.coordinates,
   });
 
   final String title;
@@ -1510,6 +1658,9 @@ class _VenueImageCard extends StatelessWidget {
   final String detail;
   final String asset;
   final String imageLabel;
+  final String capacity;
+  final String opened;
+  final String coordinates;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -1561,11 +1712,72 @@ class _VenueImageCard extends StatelessWidget {
                   height: 1.4,
                 ),
               ),
+              const SizedBox(height: 8),
+              _VenueFacts(
+                capacity: capacity,
+                opened: opened,
+                coordinates: coordinates,
+              ),
             ],
           ),
         ),
       ],
     ),
+  );
+}
+
+class _VenueFacts extends StatelessWidget {
+  const _VenueFacts({
+    required this.capacity,
+    required this.opened,
+    required this.coordinates,
+  });
+
+  final String capacity;
+  final String opened;
+  final String coordinates;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _VenueFactRow(label: 'Capacity', value: capacity),
+      const SizedBox(height: 3),
+      _VenueFactRow(label: 'Opened', value: opened),
+      const SizedBox(height: 3),
+      _VenueFactRow(label: 'Coordinates', value: coordinates),
+    ],
+  );
+}
+
+class _VenueFactRow extends StatelessWidget {
+  const _VenueFactRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      SizedBox(
+        width: 82,
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF66716B),
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      Expanded(
+        child: Text(
+          value,
+          style: const TextStyle(color: Color(0xFF66716B), fontSize: 10),
+        ),
+      ),
+    ],
   );
 }
 
@@ -1745,12 +1957,24 @@ class _BackendMatchCard extends StatelessWidget {
     final kickoff = DateTime.tryParse('${record['kickoff_at'] ?? ''}')
         ?.toLocal();
     final status = '${record['status'] ?? 'scheduled'}'.replaceAll('_', ' ');
+    final normalizedStatus = status.toLowerCase().trim();
+    final completed = const {
+      'finished',
+      'completed',
+      'played',
+      'full time',
+      'ft',
+    }.contains(normalizedStatus);
+    final dateOnly = record['date_only'] == true;
     final homeScore = record['home_score'];
     final awayScore = record['away_score'];
     final hasScore = homeScore != null && awayScore != null;
     final kickoffLabel = kickoff == null
-        ? 'Kick-off time TBC'
+        ? 'To be confirmed'
+        : dateOnly
+        ? '${_weekday(kickoff.weekday)}, ${kickoff.day} ${_month(kickoff.month)} ${kickoff.year}'
         : '${_weekday(kickoff.weekday)}, ${kickoff.day} ${_month(kickoff.month)} · ${kickoff.hour.toString().padLeft(2, '0')}:${kickoff.minute.toString().padLeft(2, '0')}';
+    final venue = '${record['venue_name'] ?? ''}'.trim();
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1787,9 +2011,11 @@ class _BackendMatchCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    status.toUpperCase(),
+                    completed ? 'COMPLETED' : status.toUpperCase(),
                     style: TextStyle(
-                      color: status == 'live'
+                      color: completed
+                          ? const Color(0xFF376B4B)
+                          : status == 'live'
                           ? const Color(0xFFCC3E32)
                           : const Color(0xFF800000),
                       fontSize: 10,
@@ -1832,14 +2058,48 @@ class _BackendMatchCard extends StatelessWidget {
               ),
               const SizedBox(height: 9),
               Text(
-                '$kickoffLabel${record['venue_name'] == null ? '' : ' · ${record['venue_name']}'}',
+                'Date: $kickoffLabel${dateOnly || kickoff == null ? '' : ' · Kick-off: ${kickoff.hour.toString().padLeft(2, '0')}:${kickoff.minute.toString().padLeft(2, '0')}'}',
                 style: const TextStyle(color: Color(0xFF666666), fontSize: 11),
               ),
+              const SizedBox(height: 4),
+              Text(
+                'Stadium: ${venue.isEmpty ? 'To be confirmed' : venue}',
+                style: const TextStyle(color: Color(0xFF666666), fontSize: 11),
+              ),
+              if (completed)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    key: Key('match-watch-${record['id']}'),
+                    onPressed: () => _watchMatchOnYoutube(
+                      context,
+                      '${record['home_team'] ?? 'Home'}',
+                      '${record['away_team'] ?? 'Away'}',
+                    ),
+                    icon: const Icon(Icons.smart_display_outlined, size: 18),
+                    label: const Text('Watch on YouTube'),
+                  ),
+                ),
             ],
           ),
         ),
       ),
     );
+  }
+}
+
+Future<void> _watchMatchOnYoutube(
+  BuildContext context,
+  String home,
+  String away,
+) async {
+  final uri = Uri.https('www.youtube.com', '/results', {
+    'search_query': '$home vs $away AFCON highlights',
+  });
+  if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
+      context.mounted) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Could not open YouTube.')));
   }
 }
 

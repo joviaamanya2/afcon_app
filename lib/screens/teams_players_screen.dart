@@ -5,9 +5,18 @@ import 'pamoja_2027_screen.dart';
 import 'pamoja_tournament_card.dart';
 
 class TeamsPlayersScreen extends StatefulWidget {
-  const TeamsPlayersScreen({super.key, this.initialTeam});
+  const TeamsPlayersScreen({
+    super.key,
+    this.initialTeam,
+    this.showAppBar = true,
+    this.showHeader = true,
+    this.api,
+  });
 
   final String? initialTeam;
+  final bool showAppBar;
+  final bool showHeader;
+  final AfconApi? api;
 
   @override
   State<TeamsPlayersScreen> createState() => _TeamsPlayersScreenState();
@@ -119,68 +128,18 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
       _Club('Seychelles', '2020', 'S', Color(0xFF3976B8)),
     ],
   };
-  static const _samplePlayers = <String, List<_Player>>{
-    'Uganda': [
-      _Player('Denis Onyango', 'Goalkeeper', '18'),
-      _Player('Khalid Aucho', 'Midfielder', '8'),
-      _Player('Rogers Mato', 'Forward', '17', {
-        'Goals': 4,
-        'Assists': 2,
-        'Yellow cards': 1,
-      }),
-    ],
-    'Ghana': [
-      _Player('Mohammed Kudus', 'Midfielder', '20', {
-        'Goals': 5,
-        'Assists': 3,
-        'Yellow cards': 2,
-      }),
-      _Player('Thomas Partey', 'Midfielder', '5'),
-      _Player('Jordan Ayew', 'Forward', '9'),
-    ],
-    'Nigeria': [
-      _Player('Victor Osimhen', 'Forward', '9', {
-        'Goals': 6,
-        'Assists': 1,
-        'Yellow cards': 1,
-      }),
-      _Player('Alex Iwobi', 'Midfielder', '17'),
-      _Player('Ademola Lookman', 'Forward', '7'),
-    ],
-    'Morocco': [
-      _Player('Achraf Hakimi', 'Defender', '2'),
-      _Player('Brahim Diaz', 'Forward', '10'),
-      _Player('Youssef En-Nesyri', 'Forward', '19'),
-    ],
-    'Senegal': [
-      _Player('Sadio Mane', 'Forward', '10'),
-      _Player('Kalidou Koulibaly', 'Defender', '3'),
-      _Player('Nicolas Jackson', 'Forward', '11'),
-    ],
-    'Egypt': [
-      _Player('Mohamed Salah', 'Forward', '10'),
-      _Player('Omar Marmoush', 'Forward', '7'),
-    ],
-    'South Africa': [
-      _Player('Ronwen Williams', 'Goalkeeper', '1'),
-      _Player('Percy Tau', 'Forward', '10'),
-      _Player('Lyle Foster', 'Forward', '9'),
-    ],
-    'Ivory Coast': [
-      _Player('Franck Kessie', 'Midfielder', '8'),
-      _Player('Simon Adingra', 'Forward', '10'),
-      _Player('Sebastien Haller', 'Forward', '22'),
-    ],
-  };
   String _selectedLeague = _leagues.first;
   _Club? _selectedClub;
   String? _selectedSeason;
-  String _selectedPlayerStat = 'Goals';
+  String _selectedPlayerStat = 'All players';
   bool _descendingPlayerStats = true;
   final _playersSectionKey = GlobalKey();
-  final _api = AfconApi();
+  late final _api = widget.api ?? AfconApi();
   List<Map<String, dynamic>> _backendTeams = [];
   List<Map<String, dynamic>> _backendPlayers = [];
+  bool _playersLoading = false;
+  String? _playersError;
+  int _playersRequestVersion = 0;
 
   Future<void> _loadBackendTeams() async {
     try {
@@ -223,11 +182,75 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
   }
 
   Future<void> _loadBackendPlayers(String teamId) async {
+    final requestVersion = ++_playersRequestVersion;
+    setState(() {
+      _backendPlayers = [];
+      _playersLoading = true;
+      _playersError = null;
+    });
     try {
       final players = await _api.players(teamId: teamId);
-      if (mounted) setState(() => _backendPlayers = players);
-    } catch (_) {
-      if (mounted) setState(() => _backendPlayers = []);
+      if (!mounted || requestVersion != _playersRequestVersion) return;
+      setState(() {
+        _backendPlayers = players;
+        _playersLoading = false;
+      });
+    } catch (error) {
+      if (!mounted || requestVersion != _playersRequestVersion) return;
+      setState(() {
+        _playersLoading = false;
+        _playersError = error is AfconApiException
+            ? error.message
+            : 'Could not load the selected team squad. Please try again.';
+      });
+    }
+  }
+
+  _Club _clubFromRecord(Map<String, dynamic> team) {
+    final teamName = '${team['name'] ?? 'Team'}';
+    final shortName = '${team['short_name'] ?? teamName}'.trim();
+    return _Club(
+      teamName,
+      DateTime.now().year.toString(),
+      (shortName.isEmpty ? 'T' : shortName.substring(0, 1)).toUpperCase(),
+      _brandMaroon,
+      id: '${team['id'] ?? ''}',
+    );
+  }
+
+  void _selectClub(_Club club) {
+    setState(() {
+      _selectedClub = club;
+      _selectedSeason = null;
+      _selectedPlayerStat = 'All players';
+      _descendingPlayerStats = true;
+      if (club.id == null) {
+        _playersRequestVersion++;
+        _backendPlayers = [];
+        _playersLoading = false;
+        _playersError = null;
+      }
+    });
+    if (club.id != null) _loadBackendPlayers(club.id!);
+  }
+
+  void _selectRegion(String region, _Club firstClub) {
+    setState(() {
+      _selectedLeague = region;
+      _selectedClub = firstClub;
+      _selectedSeason = null;
+      _selectedPlayerStat = 'All players';
+      _descendingPlayerStats = true;
+    });
+    if (firstClub.id != null) {
+      _loadBackendPlayers(firstClub.id!);
+    } else {
+      _playersRequestVersion++;
+      setState(() {
+        _backendPlayers = [];
+        _playersLoading = false;
+        _playersError = null;
+      });
     }
   }
 
@@ -264,6 +287,7 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
   }
 
   static const _playerStats = [
+    'All players',
     'Goals',
     'Assists',
     'Yellow cards',
@@ -302,24 +326,7 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
       return (region.isEmpty ? 'Unassigned' : region) == activeLeague;
     }).toList();
     final clubs = backendRegionTeams.isNotEmpty
-        ? backendRegionTeams
-              .map(
-                (team) => _Club(
-                  '${team['name'] ?? 'Team'}',
-                  DateTime.now().year.toString(),
-                  (('${team['short_name'] ?? team['name'] ?? 'T'}')
-                              .trim()
-                              .isEmpty
-                          ? 'T'
-                          : '${team['short_name'] ?? team['name'] ?? 'T'}'
-                                .trim()
-                                .substring(0, 1))
-                      .toUpperCase(),
-                  _brandMaroon,
-                  id: '${team['id'] ?? ''}',
-                ),
-              )
-              .toList()
+        ? backendRegionTeams.map(_clubFromRecord).toList()
         : _clubs[activeLeague] ?? _clubs[_leagues.first]!;
     final matchingClubs = clubs.where(
       (club) => club.name == _selectedClub?.name,
@@ -333,8 +340,9 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
         : seasons.first;
     final players = selectedClub.id != null
         ? _backendPlayers.map((record) {
-            final stats = record['stats'] is Map
-                ? (record['stats'] as Map).map(
+            final rawStats = record['statistics'] ?? record['stats'];
+            final stats = rawStats is Map
+                ? rawStats.map(
                     (key, value) => MapEntry(
                       _playerStatLabel('$key'),
                       value is num
@@ -350,9 +358,10 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
               stats,
             );
           }).toList()
-        : _samplePlayers[selectedClub.name] ?? const <_Player>[];
-    final rankedPlayers = players.toList()
-      ..sort((first, second) {
+        : const <_Player>[];
+    final rankedPlayers = players.toList();
+    if (_selectedPlayerStat != 'All players') {
+      rankedPlayers.sort((first, second) {
         final firstValue = first.stats[_selectedPlayerStat];
         final secondValue = second.stats[_selectedPlayerStat];
         if (firstValue == null) return secondValue == null ? 0 : 1;
@@ -361,44 +370,51 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
             ? secondValue.compareTo(firstValue)
             : firstValue.compareTo(secondValue);
       });
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
-      appBar: AppBar(
-        title: const Text('Teams & players'),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        elevation: 0,
-        foregroundColor: _ink,
-        titleTextStyle: const TextStyle(
-          color: _ink,
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
+      appBar: widget.showAppBar
+          ? AppBar(
+              title: const Text('Teams & players'),
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.white,
+              elevation: 0,
+              foregroundColor: _ink,
+              titleTextStyle: const TextStyle(
+                color: _ink,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          : null,
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
         children: [
-          PamojaTournamentCard(
-            onOpenTournament: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const Pamoja2027Screen()),
+          if (widget.showHeader) ...[
+            PamojaTournamentCard(
+              onOpenTournament: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const Pamoja2027Screen(),
+                ),
+              ),
             ),
-          ),
-          const Text(
-            'National teams across Africa',
-            style: TextStyle(
-              color: _ink,
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.3,
+            const Text(
+              'National teams across Africa',
+              style: TextStyle(
+                color: _ink,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+              ),
             ),
-          ),
-          const SizedBox(height: 5),
-          const Text(
-            'Browse national sides by region, then explore available squad previews.',
-            style: TextStyle(color: _muted, fontSize: 12, height: 1.45),
-          ),
-          const SizedBox(height: 18),
+            const SizedBox(height: 5),
+            const Text(
+              'Browse national sides by region. Verified player records appear when available.',
+              style: TextStyle(color: _muted, fontSize: 12, height: 1.45),
+            ),
+            const SizedBox(height: 18),
+          ],
           const Text(
             'Browse by region',
             style: TextStyle(
@@ -417,6 +433,13 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
               itemBuilder: (context, index) {
                 final league = leagues[index];
                 final selected = league == _selectedLeague;
+                final regionTeams = _backendTeams.where((team) {
+                  final region = '${team['region'] ?? ''}'.trim();
+                  return (region.isEmpty ? 'Unassigned' : region) == league;
+                });
+                final regionClubs = regionTeams.isNotEmpty
+                    ? regionTeams.map(_clubFromRecord).toList()
+                    : _clubs[league] ?? _clubs[_leagues.first]!;
                 return ChoiceChip(
                   label: Text(league),
                   selected: selected,
@@ -428,11 +451,7 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
-                  onSelected: (_) => setState(() {
-                    _selectedLeague = league;
-                    _selectedClub = null;
-                    _selectedSeason = null;
-                  }),
+                  onSelected: (_) => _selectRegion(league, regionClubs.first),
                 );
               },
             ),
@@ -460,12 +479,7 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
                   club: club,
                   selected: selected,
                   onTap: () {
-                    setState(() {
-                      _selectedClub = club;
-                      _selectedSeason = null;
-                      _backendPlayers = [];
-                    });
-                    if (club.id != null) _loadBackendPlayers(club.id!);
+                    _selectClub(club);
                   },
                 );
               },
@@ -477,7 +491,13 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
             seasons: seasons,
             selectedSeason: selectedSeason,
             onSeasonChanged: (season) {
-              if (season != null) setState(() => _selectedSeason = season);
+              if (season != null) {
+                setState(() {
+                  _selectedSeason = season;
+                  _selectedPlayerStat = 'All players';
+                  _descendingPlayerStats = true;
+                });
+              }
             },
           ),
           const SizedBox(height: 18),
@@ -508,7 +528,7 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
           Row(
             children: [
               const Text(
-                'Rank by',
+                'Sort by',
                 style: TextStyle(
                   color: _muted,
                   fontSize: 12,
@@ -545,31 +565,51 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
                   },
                 ),
               ),
-              IconButton(
-                key: const Key('player-sort-direction'),
-                tooltip: _descendingPlayerStats
-                    ? 'Highest to lowest'
-                    : 'Lowest to highest',
-                onPressed: () => setState(
-                  () => _descendingPlayerStats = !_descendingPlayerStats,
+              if (_selectedPlayerStat != 'All players')
+                IconButton(
+                  key: const Key('player-sort-direction'),
+                  tooltip: _descendingPlayerStats
+                      ? 'Highest to lowest'
+                      : 'Lowest to highest',
+                  onPressed: () => setState(
+                    () => _descendingPlayerStats = !_descendingPlayerStats,
+                  ),
+                  icon: Icon(
+                    _descendingPlayerStats
+                        ? Icons.south_rounded
+                        : Icons.north_rounded,
+                    color: _brandMaroon,
+                  ),
                 ),
-                icon: Icon(
-                  _descendingPlayerStats
-                      ? Icons.south_rounded
-                      : Icons.north_rounded,
-                  color: _brandMaroon,
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Illustrative sample stats · sorted by selected stat',
-            style: TextStyle(color: _muted, fontSize: 10),
+          Text(
+            _selectedPlayerStat == 'All players'
+                ? 'Showing the available squad in team order.'
+                : 'Players with published ${_selectedPlayerStat.toLowerCase()} are ranked first.',
+            style: const TextStyle(color: _muted, fontSize: 10),
           ),
           const SizedBox(height: 8),
           if (selectedSeason != seasons.first)
             _HistoricalSeasonNotice(season: selectedSeason)
+          else if (_playersLoading)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(
+                child: CircularProgressIndicator(
+                  key: Key('players-loading'),
+                  color: _brandMaroon,
+                ),
+              ),
+            )
+          else if (_playersError != null)
+            _PlayersLoadError(
+              message: _playersError!,
+              onRetry: selectedClub.id == null
+                  ? null
+                  : () => _loadBackendPlayers(selectedClub.id!),
+            )
           else if (rankedPlayers.isEmpty)
             const _NoPlayersNotice()
           else
@@ -578,12 +618,14 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
                 player: rankedPlayers[index],
                 club: selectedClub,
                 season: selectedSeason,
-                rank: index + 1,
-                statLabel: _selectedPlayerStat,
+                rank: _selectedPlayerStat == 'All players' ? null : index + 1,
+                statLabel: _selectedPlayerStat == 'All players'
+                    ? null
+                    : _selectedPlayerStat,
               ),
           const SizedBox(height: 10),
           const Text(
-            'Roster previews are illustrative. Historical squads and player career records require a verified football data source.',
+            'Player profiles and statistics are displayed only when published records are available from the connected data source.',
             style: TextStyle(color: _muted, fontSize: 11, height: 1.45),
           ),
         ],
@@ -729,7 +771,7 @@ class _HistoryPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'National team · sample season archive',
+                  'Official squad records not yet connected',
                   style: const TextStyle(
                     color: Color(0xFF666666),
                     fontSize: 10,
@@ -806,8 +848,8 @@ class _PlayerCard extends StatelessWidget {
   final _Player player;
   final _Club club;
   final String season;
-  final int rank;
-  final String statLabel;
+  final int? rank;
+  final String? statLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -819,8 +861,9 @@ class _PlayerCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         side: const BorderSide(color: Color(0xFFE5ECEE)),
       ),
-      child: ListTile(
+      child: InkWell(
         key: Key('ranked-player-${player.name}'),
+        borderRadius: BorderRadius.circular(14),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (context) => _PlayerProfileScreen(
@@ -830,48 +873,72 @@ class _PlayerCard extends StatelessWidget {
             ),
           ),
         ),
-        leading: CircleAvatar(
-          key: Key('rank-badge-${player.name}'),
-          radius: 20,
-          backgroundColor: const Color(0xFFEAF5EF),
-          child: Text(
-            '$rank',
-            style: const TextStyle(
-              color: Color(0xFF800000),
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-        title: Text(
-          player.name,
-          style: const TextStyle(
-            color: Color(0xFF1E1E1E),
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        subtitle: Text(
-          '${club.name} · ${player.position}',
-          style: const TextStyle(color: Color(0xFF666666), fontSize: 11),
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              '${player.stats[statLabel] ?? '—'}',
-              style: const TextStyle(
-                color: Color(0xFF1E1E1E),
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: [
+              CircleAvatar(
+                key: Key('rank-badge-${player.name}'),
+                radius: 20,
+                backgroundColor: const Color(0xFFEAF5EF),
+                child: Text(
+                  rank?.toString() ?? player.number,
+                  style: const TextStyle(
+                    color: Color(0xFF800000),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
-            ),
-            Text(
-              statLabel,
-              style: const TextStyle(color: Color(0xFF666666), fontSize: 9),
-            ),
-          ],
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      player.name,
+                      style: const TextStyle(
+                        color: Color(0xFF1E1E1E),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${club.name} · ${player.position}',
+                      style: const TextStyle(
+                        color: Color(0xFF666666),
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (statLabel != null) ...[
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '${player.stats[statLabel] ?? '—'}',
+                      style: const TextStyle(
+                        color: Color(0xFF1E1E1E),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      statLabel!,
+                      style: const TextStyle(
+                        color: Color(0xFF666666),
+                        fontSize: 9,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -916,9 +983,69 @@ class _NoPlayersNotice extends StatelessWidget {
   const _NoPlayersNotice();
 
   @override
-  Widget build(BuildContext context) {
-    return const _HistoricalSeasonNotice(season: 'This team');
-  }
+  Widget build(BuildContext context) => const _SquadStatusNotice(
+    icon: Icons.groups_outlined,
+    message: 'No published player records are available for this team yet.',
+  );
+}
+
+class _PlayersLoadError extends StatelessWidget {
+  const _PlayersLoadError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) => _SquadStatusNotice(
+    icon: Icons.cloud_off_rounded,
+    message: message,
+    action: onRetry == null
+        ? null
+        : TextButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded, size: 17),
+            label: const Text('Try again'),
+          ),
+  );
+}
+
+class _SquadStatusNotice extends StatelessWidget {
+  const _SquadStatusNotice({
+    required this.icon,
+    required this.message,
+    this.action,
+  });
+
+  final IconData icon;
+  final String message;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFFE5ECEE)),
+    ),
+    child: Row(
+      children: [
+        Icon(icon, color: const Color(0xFF800000)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            message,
+            style: const TextStyle(
+              color: Color(0xFF666666),
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+        ),
+        if (action != null) ...[const SizedBox(width: 6), action!],
+      ],
+    ),
+  );
 }
 
 class _PlayerProfileScreen extends StatefulWidget {
@@ -1046,7 +1173,7 @@ class _PlayerProfileScreenState extends State<_PlayerProfileScreen>
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'SAMPLE PROFILE · VERIFY DATA BEFORE PUBLISHING',
+                  'PLAYER PROFILE · VERIFY DATA SOURCE',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white70,

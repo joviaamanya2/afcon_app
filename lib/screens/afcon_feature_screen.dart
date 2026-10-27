@@ -7,11 +7,13 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
 import 'teams_players_screen.dart';
+import 'fan_account_screen.dart';
 
 import 'community_video_controller_native.dart'
     if (dart.library.html) 'community_video_controller_web.dart'
     as community_video;
 import '../services/afcon_api.dart';
+import '../services/fan_session.dart';
 
 const _cafMaroon = Color(0xFF800000);
 const _cafMaroonDeep = Color(0xFF5C0000);
@@ -70,40 +72,140 @@ const _officialAfconVideos = [
   ),
 ];
 
-/// Polished feature surfaces for AFCON features that are not yet backed by an
-/// approved live data or content provider.
+/// Feature surfaces for AFCON tools backed by available APIs and local state.
 class AfconFeatureScreen extends StatefulWidget {
   const AfconFeatureScreen({
     super.key,
     required this.feature,
     this.showAppBar = true,
+    this.api,
+    this.session,
   });
 
   final String feature;
   final bool showAppBar;
+  final AfconApi? api;
+  final FanSession? session;
 
   @override
   State<AfconFeatureScreen> createState() => _AfconFeatureScreenState();
 }
 
 class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
-  final _api = AfconApi();
+  late final _api = widget.api ?? AfconApi();
+  late final _session = widget.session ?? FanSession.instance;
   final Map<String, Future<List<Map<String, dynamic>>>> _contentRequests = {};
   String _selectedVideoCategory = 'Highlights';
   final Set<String> _followedTeams = {};
   final Map<String, bool> _notificationPreferences = {
-    'Match reminders': true,
-    'Kick-off changes': true,
-    'Team news': false,
-    'Tournament announcements': true,
+    'matchReminders': true,
+    'kickoffChanges': true,
+    'teamNews': false,
+    'tournamentNews': true,
   };
   final TextEditingController _questionController = TextEditingController();
-  String? _submittedQuestion;
   String? _assistantResponse;
+  List<String> _assistantCitations = const [];
   bool _assistantLoading = false;
-  final List<_CommunityPost> _communityPosts = [];
-  final Set<DateTime> _likedCommunityPosts = {};
+  List<_CommunityPost> _communityPosts = [];
   String _communityUsername = 'AFCON Fan';
+  bool _socialLoading = false;
+  String? _socialError;
+
+  @override
+  void initState() {
+    super.initState();
+    if ([
+      'Community',
+      'Follow teams',
+      'Notifications',
+    ].contains(widget.feature)) {
+      _loadSocialData();
+    }
+  }
+
+  Future<void> _loadSocialData() async {
+    if (mounted) {
+      setState(() {
+        _socialLoading = true;
+        _socialError = null;
+      });
+    }
+
+    String? sessionError;
+    try {
+      await _session.restore();
+    } catch (error) {
+      sessionError = _messageFor(error);
+    }
+
+    final token = _session.token;
+    try {
+      if (widget.feature == 'Community') {
+        final rows = await _api.communityPosts(token: token);
+        final posts = rows.map(_CommunityPost.fromJson).toList();
+        if (mounted) {
+          setState(() {
+            _communityPosts = posts;
+            _communityUsername = _session.account?.displayName ?? 'AFCON Fan';
+          });
+        }
+      } else if (widget.feature == 'Follow teams' && token != null) {
+        final rows = await _api.followedTeams(token);
+        if (mounted) {
+          setState(() {
+            _followedTeams
+              ..clear()
+              ..addAll(
+                rows
+                    .map(
+                      (row) =>
+                          '${row['id'] ?? row['teamId'] ?? row['team_id'] ?? ''}',
+                    )
+                    .where((id) => id.isNotEmpty),
+              );
+          });
+        }
+      } else if (widget.feature == 'Notifications' && token != null) {
+        final response = await _api.notificationPreferences(token);
+        final preferences = response['data'];
+        if (preferences is Map<String, dynamic> && mounted) {
+          setState(() {
+            for (final key in _notificationPreferences.keys) {
+              final value = preferences[key];
+              if (value is bool) _notificationPreferences[key] = value;
+            }
+          });
+        }
+      }
+    } catch (error) {
+      sessionError ??= _messageFor(error);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _socialLoading = false;
+          _socialError = sessionError;
+        });
+      }
+    }
+  }
+
+  Future<bool> _requireSignedIn() async {
+    if (_session.isSignedIn) return true;
+    final signedIn = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => FanAccountScreen(session: _session),
+      ),
+    );
+    if (!mounted || signedIn != true) return false;
+    await _loadSocialData();
+    return _session.isSignedIn;
+  }
+
+  String _messageFor(Object error) {
+    if (error is AfconApiException) return error.message;
+    return 'Could not connect to your account. Check the backend and try again.';
+  }
 
   @override
   void dispose() {
@@ -114,20 +216,24 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
 
   Future<void> _askAssistant(String question) async {
     final cleanedQuestion = question.trim();
-    if (cleanedQuestion.isEmpty) return;
+    if (cleanedQuestion.isEmpty || _assistantLoading) return;
     setState(() {
-      _submittedQuestion = cleanedQuestion;
       _assistantResponse = null;
+      _assistantCitations = const [];
       _assistantLoading = true;
       _questionController.text = cleanedQuestion;
     });
     try {
       final result = await _api.askAssistant(question: cleanedQuestion);
       if (!mounted) return;
-      setState(
-        () => _assistantResponse =
-            result['answer']?.toString() ?? 'No answer was returned.',
-      );
+      setState(() {
+        _assistantResponse =
+            result['answer']?.toString() ?? 'No answer was returned.';
+        final citations = result['citations'];
+        _assistantCitations = citations is List
+            ? citations.map((citation) => citation.toString()).toList()
+            : const [];
+      });
     } on AfconApiException catch (error) {
       if (!mounted) return;
       setState(() => _assistantResponse = error.message);
@@ -218,19 +324,17 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
                 style: const TextStyle(color: _muted, fontSize: 11),
               ),
               trailing: IconButton(
-                tooltip: _followedTeams.contains(recordTitle)
+                tooltip: _followedTeams.contains('${record['id'] ?? ''}')
                     ? 'Unfollow $recordTitle'
                     : 'Follow $recordTitle',
-                onPressed: () => setState(
-                  () => _followedTeams.contains(recordTitle)
-                      ? _followedTeams.remove(recordTitle)
-                      : _followedTeams.add(recordTitle),
-                ),
+                onPressed: record['id'] == null
+                    ? null
+                    : () => _toggleFollowTeam(record),
                 icon: Icon(
-                  _followedTeams.contains(recordTitle)
+                  _followedTeams.contains('${record['id'] ?? ''}')
                       ? Icons.star_rounded
                       : Icons.star_border_rounded,
-                  color: _followedTeams.contains(recordTitle)
+                  color: _followedTeams.contains('${record['id'] ?? ''}')
                       ? const Color(0xFFB17A00)
                       : _muted,
                 ),
@@ -240,15 +344,7 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
           return ListTile(
             contentPadding: EdgeInsets.zero,
             onTap: resource == 'media'
-                ? () {
-                    final mediaUrl =
-                        record['playback_url'] ??
-                        record['url'] ??
-                        record['source_url'];
-                    if (mediaUrl is String && mediaUrl.isNotEmpty) {
-                      _openExternalVideo(mediaUrl);
-                    }
-                  }
+                ? () => _openYoutubeSearch(recordTitle)
                 : null,
             leading: CircleAvatar(
               backgroundColor: const Color(0xFFF5E6E6),
@@ -273,6 +369,32 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
       );
     },
   );
+
+  Future<void> _toggleFollowTeam(Map<String, dynamic> team) async {
+    final id = '${team['id'] ?? ''}';
+    if (id.isEmpty || !await _requireSignedIn()) return;
+    final shouldFollow = !_followedTeams.contains(id);
+    try {
+      await _api.followTeam(
+        token: _session.token!,
+        teamId: id,
+        follow: shouldFollow,
+      );
+      if (mounted) {
+        setState(() {
+          if (shouldFollow) {
+            _followedTeams.add(id);
+          } else {
+            _followedTeams.remove(id);
+          }
+        });
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_messageFor(error))));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -355,7 +477,9 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
                       .map(
                         (question) => ActionChip(
                           label: Text(question),
-                          onPressed: () => _askAssistant(question),
+                          onPressed: _assistantLoading
+                              ? null
+                              : () => _askAssistant(question),
                           backgroundColor: const Color(0xFFF5E6E6),
                           side: BorderSide.none,
                           labelStyle: const TextStyle(
@@ -367,16 +491,27 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
                       )
                       .toList(),
             ),
+            if (_assistantLoading || _assistantResponse != null) ...[
+              const SizedBox(height: 14),
+              _AssistantReply(
+                response: _assistantResponse,
+                citations: _assistantCitations,
+                loading: _assistantLoading,
+              ),
+            ],
             const SizedBox(height: 14),
             TextField(
               controller: _questionController,
+              enabled: !_assistantLoading,
               textInputAction: TextInputAction.send,
               onSubmitted: _askAssistant,
               decoration: InputDecoration(
                 hintText: 'Ask in your language…',
                 suffixIcon: IconButton(
                   tooltip: 'Send question',
-                  onPressed: () => _askAssistant(_questionController.text),
+                  onPressed: _assistantLoading
+                      ? null
+                      : () => _askAssistant(_questionController.text),
                   icon: const Icon(
                     Icons.arrow_upward_rounded,
                     color: Colors.white,
@@ -391,15 +526,6 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
                 ),
               ),
             ),
-            if (_submittedQuestion case final question?
-                when question.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              _AssistantReply(
-                question: question,
-                response: _assistantResponse,
-                loading: _assistantLoading,
-              ),
-            ],
           ],
         ),
       ),
@@ -426,15 +552,46 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
     children: [
       const _SectionTitle('Choose what you hear about'),
       const SizedBox(height: 10),
+      if (!_session.isSignedIn)
+        _Panel(
+          child: Material(
+            color: Colors.transparent,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(
+                Icons.account_circle_outlined,
+                color: _cafMaroon,
+              ),
+              title: const Text('Sign in to sync your settings'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () {
+                _requireSignedIn();
+              },
+            ),
+          ),
+        ),
+      if (_socialError != null) ...[
+        const SizedBox(height: 8),
+        _EventCard(
+          title: 'Settings unavailable',
+          detail: _socialError!,
+          icon: Icons.cloud_off_rounded,
+        ),
+      ],
       _Panel(
         child: Column(
           children: _notificationPreferences.keys
               .map(
-                (label) => SwitchListTile.adaptive(
+                (key) => SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
                   activeTrackColor: _cafMaroon,
                   title: Text(
-                    label,
+                    switch (key) {
+                      'matchReminders' => 'Match reminders',
+                      'kickoffChanges' => 'Kick-off changes',
+                      'teamNews' => 'Team news',
+                      _ => 'Tournament announcements',
+                    },
                     style: const TextStyle(
                       color: _ink,
                       fontSize: 14,
@@ -445,9 +602,9 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
                     'For teams and matches you follow',
                     style: TextStyle(color: _muted, fontSize: 11),
                   ),
-                  value: _notificationPreferences[label]!,
+                  value: _notificationPreferences[key]!,
                   onChanged: (value) =>
-                      setState(() => _notificationPreferences[label] = value),
+                      _updateNotificationPreference(key, value),
                 ),
               )
               .toList(),
@@ -455,6 +612,25 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
       ),
     ],
   );
+
+  Future<void> _updateNotificationPreference(String key, bool value) async {
+    if (!await _requireSignedIn()) return;
+    final previous = _notificationPreferences[key]!;
+    setState(() => _notificationPreferences[key] = value);
+    try {
+      await _api.saveNotificationPreferences(
+        token: _session.token!,
+        preferences: _notificationPreferences,
+      );
+      if (mounted) setState(() => _socialError = null);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _notificationPreferences[key] = previous;
+        _socialError = _messageFor(error);
+      });
+    }
+  }
 
   Widget _eventContent() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -504,9 +680,7 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
             date: featured.date,
             youtubeId: featured.youtubeId,
             source: featured.source,
-            onTap: () => _openExternalVideo(
-              'https://www.youtube.com/watch?v=${featured.youtubeId}',
-            ),
+            onTap: () => _openYoutubeVideo(featured.youtubeId),
           ),
         ),
         Padding(
@@ -557,7 +731,7 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
               if (categoryVideos.isEmpty)
                 const _EventCard(
                   title: 'More videos coming soon',
-                  detail: 'Browse the CAF archive for more official coverage.',
+                  detail: 'New video highlights will be added to this in-app collection.',
                   icon: Icons.video_library_rounded,
                 )
               else
@@ -568,23 +742,14 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
                     date: video.date,
                     youtubeId: video.youtubeId,
                     source: video.source,
-                    onTap: () => _openExternalVideo(
-                      'https://www.youtube.com/watch?v=${video.youtubeId}',
-                    ),
+                    onTap: () => _openYoutubeVideo(video.youtubeId),
                   ),
                   const SizedBox(height: 10),
                 ],
-              OutlinedButton.icon(
-                onPressed: () => _openExternalVideo(
-                  'https://www.cafonline.com/afcon2025/videos/',
-                ),
-                icon: const Icon(Icons.open_in_new_rounded, size: 17),
-                label: const Text('More videos on CAF Online'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: _cafMaroon,
-                  side: const BorderSide(color: Color(0xFFE3D1D1)),
-                  minimumSize: const Size.fromHeight(44),
-                ),
+              const _EventCard(
+                title: 'AFCON video collection',
+                detail: 'Browse the available highlights above. New videos will be added here when available.',
+                icon: Icons.video_library_rounded,
               ),
             ],
           ),
@@ -593,18 +758,29 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
     );
   }
 
-  Future<void> _openExternalVideo(String value) async {
-    final uri = Uri.tryParse(value);
-    if (uri == null ||
-        !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+  Future<void> _openYoutubeVideo(String youtubeId) async {
+    final uri = Uri.https('www.youtube.com', '/watch', {'v': youtubeId});
+    await _launchYoutube(uri);
+  }
+
+  Future<void> _openYoutubeSearch(String query) async {
+    final uri = Uri.https('www.youtube.com', '/results', {
+      'search_query': query,
+    });
+    await _launchYoutube(uri);
+  }
+
+  Future<void> _launchYoutube(Uri uri) async {
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open this video link.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Could not open YouTube.')));
     }
   }
 
   Future<void> _composeCommunityPost() async {
+    if (!await _requireSignedIn() || !mounted) return;
     final draft = await showModalBottomSheet<_CommunityPostDraft>(
       context: context,
       isScrollControlled: true,
@@ -613,17 +789,54 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
       builder: (context) => const _ComposeCommunityPostSheet(),
     );
     if (!mounted || draft == null) return;
-    setState(() {
-      _communityPosts.insert(
-        0,
-        _CommunityPost(
-          author: _communityUsername,
-          content: draft.content,
-          media: draft.media,
-          createdAt: DateTime.now(),
-        ),
+    try {
+      final media = <Map<String, String>>[];
+      for (final item in draft.media) {
+        final file = item.file!;
+        final uploaded = await _api.uploadCommunityMedia(
+          token: _session.token!,
+          bytes: await file.readAsBytes(),
+          filename: file.name,
+          mimeType: _mimeTypeFor(file.name, item.isVideo),
+        );
+        final result = uploaded['data'];
+        if (result is! Map<String, dynamic> || result['url'] == null) {
+          throw const FormatException('The media upload response is invalid.');
+        }
+        media.add({
+          'url': '${result['url']}',
+          'type': '${result['type'] ?? (item.isVideo ? 'video' : 'image')}',
+        });
+      }
+      await _api.createCommunityPost(
+        token: _session.token!,
+        content: draft.content,
+        media: media,
       );
-    });
+      await _loadSocialData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Post submitted for community review.')),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_messageFor(error))));
+    }
+  }
+
+  String _mimeTypeFor(String filename, bool video) {
+    final extension = filename.split('.').last.toLowerCase();
+    return switch ((video, extension)) {
+      (true, 'mp4') || (true, 'm4v') => 'video/mp4',
+      (true, 'webm') => 'video/webm',
+      (true, 'mov') => 'video/quicktime',
+      (_, 'png') => 'image/png',
+      (_, 'webp') => 'image/webp',
+      (_, 'gif') => 'image/gif',
+      _ => 'image/jpeg',
+    };
   }
 
   Widget _communityContent() => Column(
@@ -631,17 +844,43 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
     children: [
       const _SectionTitle('Community feed'),
       const SizedBox(height: 10),
-      _CommunityIdentityCard(
-        username: _communityUsername,
-        onEdit: _editCommunityUsername,
-      ),
-      const SizedBox(height: 10),
       _CommunityComposer(
         username: _communityUsername,
         onTap: _composeCommunityPost,
       ),
+      if (!_session.isSignedIn) ...[
+        const SizedBox(height: 8),
+        _Panel(
+          child: Material(
+            color: Colors.transparent,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(
+                Icons.account_circle_outlined,
+                color: _cafMaroon,
+              ),
+              title: const Text('Sign in to sync your posts'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () {
+                _requireSignedIn();
+              },
+            ),
+          ),
+        ),
+      ],
       const SizedBox(height: 14),
-      if (_communityPosts.isEmpty)
+      if (_socialLoading)
+        const Padding(
+          padding: EdgeInsets.all(24),
+          child: Center(child: CircularProgressIndicator()),
+        )
+      else if (_socialError != null)
+        _EventCard(
+          title: 'Community feed unavailable',
+          detail: _socialError!,
+          icon: Icons.cloud_off_rounded,
+        )
+      else if (_communityPosts.isEmpty)
         const _CommunityEmptyState()
       else
         for (var index = 0; index < _communityPosts.length; index++)
@@ -649,20 +888,14 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
             padding: const EdgeInsets.only(bottom: 12),
             child: _CommunityPostCard(
               post: _communityPosts[index],
-              isOwnPost: _communityPosts[index].isOwnPost,
-              liked: _likedCommunityPosts.contains(
-                _communityPosts[index].createdAt,
-              ),
-              onLike: () => setState(() {
-                final postKey = _communityPosts[index].createdAt;
-                if (!_likedCommunityPosts.add(postKey)) {
-                  _likedCommunityPosts.remove(postKey);
-                }
-              }),
+              isOwnPost: _communityPosts[index].userId == _session.account?.id,
+              liked: _communityPosts[index].likedByMe,
+              onLike: () => _toggleCommunityLike(_communityPosts[index]),
               onComment: () => _showCommunityComments(_communityPosts[index]),
               onShare: () => _shareCommunityPost(_communityPosts[index]),
+              onEditName: _editCommunityUsername,
               onDelete: () => _deleteCommunityPost(_communityPosts[index]),
-              onReport: _reportCommunityPost,
+              onReport: () => _reportCommunityPost(_communityPosts[index]),
             ),
           ),
       const SizedBox(height: 6),
@@ -678,21 +911,80 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
     );
     final cleanedUsername = username?.trim() ?? '';
     if (!mounted || cleanedUsername.isEmpty) return;
-    setState(() => _communityUsername = cleanedUsername);
+    try {
+      final account = await _session.updateDisplayName(cleanedUsername);
+      if (mounted) setState(() => _communityUsername = account.displayName);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_messageFor(error))));
+    }
   }
 
   Future<void> _showCommunityComments(_CommunityPost post) async {
+    List<String> comments = [];
+    try {
+      final rows = await _api.communityComments(
+        postId: post.id,
+        token: _session.token,
+      );
+      comments = rows
+          .map(
+            (row) =>
+                '${row['displayName'] ?? 'AFCON Fan'}: ${row['content'] ?? ''}',
+          )
+          .toList();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_messageFor(error))));
+      return;
+    }
+    if (!mounted) return;
     final comment = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) =>
-          _CommunityCommentsSheet(comments: List.unmodifiable(post.comments)),
+          _CommunityCommentsSheet(comments: List.unmodifiable(comments)),
     );
     final cleanedComment = comment?.trim() ?? '';
     if (!mounted || cleanedComment.isEmpty) return;
-    setState(() => post.comments.add('$_communityUsername: $cleanedComment'));
+    if (!await _requireSignedIn() || !mounted) return;
+    try {
+      await _api.addCommunityComment(
+        token: _session.token!,
+        postId: post.id,
+        content: cleanedComment,
+      );
+      setState(() {
+        post.comments.add(
+          '${_session.account?.displayName ?? 'AFCON Fan'}: $cleanedComment',
+        );
+        post.commentCount++;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_messageFor(error))));
+    }
+  }
+
+  Future<void> _toggleCommunityLike(_CommunityPost post) async {
+    if (!await _requireSignedIn()) return;
+    try {
+      await _api.setCommunityPostLiked(
+        token: _session.token!,
+        postId: post.id,
+        liked: !post.likedByMe,
+      );
+      await _loadSocialData();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_messageFor(error))));
+    }
   }
 
   Future<void> _shareCommunityPost(_CommunityPost post) async {
@@ -705,10 +997,11 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
       await SharePlus.instance.share(
         ShareParams(
           text: text,
-          files: post.media.isEmpty
+          files: post.media.where((media) => media.file != null).isEmpty
               ? null
               : post.media
-                    .map((media) => XFile(media.file.path))
+                    .where((media) => media.file != null)
+                    .map((media) => XFile(media.file!.path))
                     .toList(growable: false),
         ),
       );
@@ -745,42 +1038,95 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
       ),
     );
     if (!mounted || confirmed != true) return;
-    setState(() {
-      _communityPosts.remove(post);
-      _likedCommunityPosts.remove(post.createdAt);
-    });
+    try {
+      await _api.deleteCommunityPost(token: _session.token!, postId: post.id);
+      await _loadSocialData();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_messageFor(error))));
+    }
   }
 
-  void _reportCommunityPost() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Thanks. This post has been flagged for review.'),
-      ),
-    );
+  Future<void> _reportCommunityPost(_CommunityPost post) async {
+    if (!await _requireSignedIn()) return;
+    try {
+      await _api.reportCommunityPost(
+        token: _session.token!,
+        postId: post.id,
+        reason: 'Inappropriate or harmful content',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Thanks. This post has been reported.')),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_messageFor(error))));
+    }
   }
 }
 
 class _CommunityPost {
   _CommunityPost({
+    required this.id,
+    required this.userId,
     required this.author,
     required this.content,
     required this.media,
     required this.createdAt,
+    required this.status,
+    required this.likes,
+    required this.likedByMe,
+    required this.commentCount,
   });
 
+  factory _CommunityPost.fromJson(Map<String, dynamic> json) {
+    final rawMedia = json['media'];
+    final media = rawMedia is List
+        ? rawMedia.whereType<Map<String, dynamic>>().map((item) {
+            final type = '${item['type'] ?? ''}';
+            return _CommunityMedia(
+              url: item['url']?.toString(),
+              isVideo: type == 'video',
+            );
+          }).toList()
+        : <_CommunityMedia>[];
+    return _CommunityPost(
+      id: '${json['id'] ?? ''}',
+      userId: '${json['userId'] ?? ''}',
+      author: '${json['displayName'] ?? 'AFCON Fan'}',
+      content: '${json['content'] ?? ''}',
+      media: media,
+      createdAt:
+          DateTime.tryParse('${json['createdAt'] ?? ''}') ?? DateTime.now(),
+      status: '${json['status'] ?? 'published'}',
+      likes: (json['likesCount'] as num?)?.toInt() ?? 0,
+      likedByMe: json['likedByMe'] == true,
+      commentCount: (json['commentsCount'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  final String id;
+  final String userId;
   final String author;
   final String content;
   final List<_CommunityMedia> media;
   final DateTime createdAt;
-  final bool isOwnPost = true;
-  final int likes = 0;
+  final String status;
+  final int likes;
+  final bool likedByMe;
+  int commentCount;
   final List<String> comments = [];
 }
 
 class _CommunityMedia {
-  const _CommunityMedia({required this.file, required this.isVideo});
+  const _CommunityMedia({this.file, this.url, required this.isVideo});
 
-  final XFile file;
+  final XFile? file;
+  final String? url;
   final bool isVideo;
 }
 
@@ -1011,76 +1357,24 @@ class _CommunityComposer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _Panel(
-    child: InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: Color(0xFFF5E6E6),
-            child: Text(
-              username.isEmpty ? 'A' : username[0].toUpperCase(),
-              style: const TextStyle(
-                color: _cafMaroon,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          const SizedBox(width: 11),
-          const Expanded(
-            child: Text(
-              'Share something with the fans…',
-              style: TextStyle(color: _muted, fontSize: 13),
-            ),
-          ),
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF5E6E6),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.add_rounded, color: _cafMaroon),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-class _CommunityIdentityCard extends StatelessWidget {
-  const _CommunityIdentityCard({required this.username, required this.onEdit});
-
-  final String username;
-  final VoidCallback onEdit;
-
-  @override
-  Widget build(BuildContext context) => _Panel(
-    child: Row(
+    child: Column(
       children: [
-        CircleAvatar(
-          radius: 20,
-          backgroundColor: const Color(0xFFF5E6E6),
-          child: Text(
-            username.isEmpty ? 'A' : username[0].toUpperCase(),
-            style: const TextStyle(
-              color: _cafMaroon,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Posting as',
-                style: TextStyle(color: _muted, fontSize: 10),
+        Row(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: const Color(0xFFF5E6E6),
+              child: Text(
+                username.isEmpty ? 'A' : username[0].toUpperCase(),
+                style: const TextStyle(
+                  color: _cafMaroon,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
-              const SizedBox(height: 3),
-              Text(
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Text(
                 username,
                 key: const Key('community-current-username'),
                 style: const TextStyle(
@@ -1089,13 +1383,41 @@ class _CommunityIdentityCard extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-        TextButton(
-          key: const Key('community-edit-username'),
-          onPressed: onEdit,
-          child: const Text('Edit name'),
+        const SizedBox(height: 12),
+        InkWell(
+          key: const Key('community-start-post'),
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: _canvas,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Share something with the fans…',
+                    style: TextStyle(color: _muted, fontSize: 13),
+                  ),
+                ),
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5E6E6),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.add_rounded, color: _cafMaroon),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     ),
@@ -1160,6 +1482,7 @@ class _CommunityPostCard extends StatelessWidget {
     required this.onLike,
     required this.onComment,
     required this.onShare,
+    required this.onEditName,
     required this.onDelete,
     required this.onReport,
   });
@@ -1170,6 +1493,7 @@ class _CommunityPostCard extends StatelessWidget {
   final VoidCallback onLike;
   final VoidCallback onComment;
   final VoidCallback onShare;
+  final VoidCallback onEditName;
   final VoidCallback onDelete;
   final VoidCallback onReport;
 
@@ -1201,7 +1525,7 @@ class _CommunityPostCard extends StatelessWidget {
                   ),
                   SizedBox(height: 2),
                   Text(
-                    'Just now · Community post',
+                    '${post.createdAt.toLocal().day}/${post.createdAt.toLocal().month}/${post.createdAt.toLocal().year} · Community post',
                     style: TextStyle(color: _muted, fontSize: 10),
                   ),
                 ],
@@ -1209,21 +1533,24 @@ class _CommunityPostCard extends StatelessWidget {
             ),
             PopupMenuButton<String>(
               tooltip: 'Post options',
-              onSelected: (action) {
-                if (action == 'delete') {
-                  onDelete();
-                } else {
-                  onReport();
-                }
+              onSelected: (action) => switch (action) {
+                'edit-name' => onEditName(),
+                'delete' => onDelete(),
+                _ => onReport(),
               },
               itemBuilder: (context) => [
-                if (isOwnPost)
+                if (isOwnPost) ...[
+                  const PopupMenuItem(
+                    key: Key('community-edit-username'),
+                    value: 'edit-name',
+                    child: Text('Edit name'),
+                  ),
                   const PopupMenuItem(
                     key: Key('community-delete-post'),
                     value: 'delete',
                     child: Text('Delete post'),
-                  )
-                else
+                  ),
+                ] else
                   const PopupMenuItem(
                     value: 'report',
                     child: Text('Report post'),
@@ -1233,6 +1560,26 @@ class _CommunityPostCard extends StatelessWidget {
             ),
           ],
         ),
+        if (post.status == 'pending') ...[
+          const SizedBox(height: 8),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF3D6),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              child: Text(
+                'Awaiting community review',
+                style: TextStyle(
+                  color: Color(0xFF765600),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 14),
         if (post.content.isNotEmpty)
           Text(
@@ -1260,7 +1607,7 @@ class _CommunityPostCard extends StatelessWidget {
                 size: 18,
               ),
               label: Text(
-                '${liked ? 'Liked' : 'Like'} ${post.likes + (liked ? 1 : 0)}',
+                '${liked ? 'Liked' : 'Like'} ${post.likes}',
                 style: TextStyle(
                   color: liked ? const Color(0xFFD84343) : _muted,
                   fontSize: 12,
@@ -1273,7 +1620,7 @@ class _CommunityPostCard extends StatelessWidget {
               onPressed: onComment,
               icon: const Icon(Icons.mode_comment_outlined, size: 17),
               label: Text(
-                'Comment ${post.comments.length}',
+                'Comment ${post.commentCount}',
                 style: const TextStyle(
                   color: _muted,
                   fontSize: 12,
@@ -1474,9 +1821,9 @@ class _SelectedMediaThumbnail extends StatelessWidget {
                 ],
               ),
             )
-          else
+          else if (media.file != null)
             FutureBuilder(
-              future: media.file.readAsBytes(),
+              future: media.file!.readAsBytes(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
                   return const ColoredBox(
@@ -1496,6 +1843,11 @@ class _SelectedMediaThumbnail extends StatelessWidget {
                       ),
                 );
               },
+            )
+          else
+            const ColoredBox(
+              color: Color(0xFFE9EFEB),
+              child: Center(child: Icon(Icons.image_outlined, color: _muted)),
             ),
           Positioned(
             top: 3,
@@ -1539,10 +1891,37 @@ class _CommunityPostMedia extends StatelessWidget {
       return _CommunityVideoPlayer(media: media);
     }
 
+    if (media.file == null && media.url != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(
+          media.url!,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, progress) => progress == null
+              ? child
+              : const SizedBox(
+                  height: 220,
+                  child: ColoredBox(
+                    color: Color(0xFFE9EFEB),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ),
+          errorBuilder: (context, error, stackTrace) => const SizedBox(
+            height: 110,
+            child: ColoredBox(
+              color: Color(0xFFE9EFEB),
+              child: Center(child: Text('This image could not be displayed.')),
+            ),
+          ),
+        ),
+      );
+    }
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: FutureBuilder(
-        future: media.file.readAsBytes(),
+        future: media.file!.readAsBytes(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const SizedBox(
@@ -1589,7 +1968,7 @@ class _CommunityPostMedia extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          media.file.name,
+          media.file?.name ?? media.url ?? 'Video attachment',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(color: Colors.white, fontSize: 12),
@@ -1615,7 +1994,11 @@ class _CommunityVideoPlayerState extends State<_CommunityVideoPlayer> {
   @override
   void initState() {
     super.initState();
-    _controller = community_video.createController(widget.media.file.path);
+    final path = widget.media.file?.path ?? widget.media.url!;
+    _controller = community_video.createController(
+      path,
+      isNetwork: widget.media.file == null,
+    );
     _initializeVideo();
   }
 
@@ -1771,12 +2154,12 @@ class _CommunitySafetyNote extends StatelessWidget {
 
 class _AssistantReply extends StatelessWidget {
   const _AssistantReply({
-    required this.question,
     required this.response,
+    required this.citations,
     required this.loading,
   });
-  final String question;
   final String? response;
+  final List<String> citations;
   final bool loading;
 
   @override
@@ -1790,15 +2173,6 @@ class _AssistantReply extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'You asked: "$question"',
-          style: const TextStyle(
-            color: _ink,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 7),
         if (loading)
           const Row(
             children: [
@@ -1822,6 +2196,27 @@ class _AssistantReply extends StatelessWidget {
             response ?? 'No answer returned.',
             style: const TextStyle(color: _ink, fontSize: 12, height: 1.5),
           ),
+        if (!loading && citations.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          const Text(
+            'Sources',
+            style: TextStyle(
+              color: _muted,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          ...citations.map(
+            (citation) => Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Text(
+                '- $citation',
+                style: const TextStyle(color: _muted, fontSize: 11),
+              ),
+            ),
+          ),
+        ],
       ],
     ),
   );
@@ -2035,7 +2430,7 @@ class _OfficialVideoCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const Icon(Icons.open_in_new_rounded, color: _cafMaroon),
+                const Icon(Icons.play_arrow_rounded, color: _cafMaroon),
               ],
             ),
           ),

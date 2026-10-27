@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'pamoja_qualifiers_screen.dart';
+
 const _ink = Color(0xFF1E1E1E);
 const _muted = Color(0xFF66716B);
 const _line = Color(0xFFE4E9E5);
@@ -151,54 +153,60 @@ class _TournamentHero extends StatelessWidget {
     color: const Color(0xFF171B19),
     borderRadius: BorderRadius.circular(14),
     clipBehavior: Clip.antiAlias,
-    child: SizedBox(
-      height: 190,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.asset(
-            'assets/images/new images/home screen images/afcon_pamoja_q.webp',
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
-          ),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Color(0xB3000000)],
+    child: InkWell(
+      key: const Key('pamoja-hero-qualifiers-graphic'),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const PamojaQualifiersScreen()),
+      ),
+      child: SizedBox(
+        height: 190,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              'assets/images/new images/home screen images/afcon_pamoja_q.webp',
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+            ),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Color(0xB3000000)],
+                ),
               ),
             ),
-          ),
-          const Positioned(
-            left: 14,
-            right: 14,
-            bottom: 14,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'TOTALENERGIES CAF AFRICA CUP OF NATIONS',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.65,
+            const Positioned(
+              left: 14,
+              right: 14,
+              bottom: 14,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'TOTALENERGIES CAF AFRICA CUP OF NATIONS',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.65,
+                    ),
                   ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'PAMOJA 2027',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w900,
+                  SizedBox(height: 4),
+                  Text(
+                    'PAMOJA 2027',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );
