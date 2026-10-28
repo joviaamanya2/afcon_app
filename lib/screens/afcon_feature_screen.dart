@@ -1,4 +1,7 @@
 import 'package:flutter/foundation.dart';
+
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -80,18 +83,21 @@ class AfconFeatureScreen extends StatefulWidget {
     this.showAppBar = true,
     this.api,
     this.session,
+    this.autoRefresh = false,
   });
 
   final String feature;
   final bool showAppBar;
   final AfconApi? api;
   final FanSession? session;
+  final bool autoRefresh;
 
   @override
   State<AfconFeatureScreen> createState() => _AfconFeatureScreenState();
 }
 
-class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
+class _AfconFeatureScreenState extends State<AfconFeatureScreen>
+    with WidgetsBindingObserver {
   late final _api = widget.api ?? AfconApi();
   late final _session = widget.session ?? FanSession.instance;
   final Map<String, Future<List<Map<String, dynamic>>>> _contentRequests = {};
@@ -111,10 +117,14 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
   String _communityUsername = 'AFCON Fan';
   bool _socialLoading = false;
   String? _socialError;
+  Timer? _contentRefreshTimer;
+  bool _appResumed = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _syncContentRefreshTimer();
     if ([
       'Community',
       'Follow teams',
@@ -122,6 +132,30 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
     ].contains(widget.feature)) {
       _loadSocialData();
     }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appResumed = state == AppLifecycleState.resumed;
+    _syncContentRefreshTimer();
+    if (_appResumed) _refreshBackendContent();
+  }
+
+  bool get _hasRefreshableContent =>
+      widget.autoRefresh &&
+      const ['Events', 'Venues', 'Media'].contains(widget.feature);
+
+  void _syncContentRefreshTimer() {
+    _contentRefreshTimer?.cancel();
+    if (!_appResumed || !_hasRefreshableContent) return;
+    _contentRefreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted && _appResumed) _refreshBackendContent();
+    });
+  }
+
+  void _refreshBackendContent() {
+    if (!mounted || !_hasRefreshableContent) return;
+    setState(_contentRequests.clear);
   }
 
   Future<void> _loadSocialData() async {
@@ -209,6 +243,8 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _contentRefreshTimer?.cancel();
     _questionController.dispose();
     _api.close();
     super.dispose();
@@ -288,17 +324,21 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
       return Column(
         children: records.map((record) {
           final recordTitle = '${record['title'] ?? record['name'] ?? 'AFCON'}';
+          final imageUrl = record['image_url'];
           final details = resource == 'events'
               ? '${record['city'] ?? ''}${record['starts_at'] == null ? '' : ' · ${record['starts_at']}'}'
               : resource == 'venues'
-              ? '${record['city'] ?? ''}${record['capacity'] == null ? '' : ' · Capacity ${record['capacity']}'}'
+              ? '${record['city'] ?? ''}${record['capacity'] == null ? '' : ' · Capacity ${record['capacity']} people'}'
               : '${record['description'] ?? record['media_type'] ?? ''}';
           if (resource == 'teams') {
             return ListTile(
               contentPadding: EdgeInsets.zero,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
-                  builder: (_) => TeamsPlayersScreen(initialTeam: recordTitle),
+                  builder: (_) => TeamsPlayersScreen(
+                    initialTeam: recordTitle,
+                    autoRefresh: true,
+                  ),
                 ),
               ),
               leading: CircleAvatar(
@@ -338,6 +378,88 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
                       ? const Color(0xFFB17A00)
                       : _muted,
                 ),
+              ),
+            );
+          }
+          if (resource == 'venues') {
+            final venueImageUrl = imageUrl is String ? imageUrl.trim() : '';
+            final venueLocation =
+                '${record['city'] ?? ''}${record['country'] == null ? '' : ', ${record['country']}'}';
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE6EBE7)),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AspectRatio(
+                    aspectRatio: 16 / 8,
+                    child: venueImageUrl.isNotEmpty
+                        ? Image.network(
+                            venueImageUrl,
+                            fit: BoxFit.cover,
+                            semanticLabel: recordTitle,
+                            errorBuilder: (_, _, _) => const ColoredBox(
+                              color: Color(0xFFF5E6E6),
+                              child: Center(
+                                child: Icon(
+                                  Icons.stadium_rounded,
+                                  color: _cafMaroon,
+                                  size: 42,
+                                ),
+                              ),
+                            ),
+                          )
+                        : const ColoredBox(
+                            color: Color(0xFFF5E6E6),
+                            child: Center(
+                              child: Icon(
+                                Icons.stadium_rounded,
+                                color: _cafMaroon,
+                                size: 42,
+                              ),
+                            ),
+                          ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(13),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          recordTitle,
+                          style: const TextStyle(
+                            color: _ink,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        if (venueLocation.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            venueLocation,
+                            style: const TextStyle(
+                              color: Color(0xFF176B46),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                        if (record['capacity'] != null) ...[
+                          const SizedBox(height: 7),
+                          Text(
+                            'Capacity: ${record['capacity']} people',
+                            style: const TextStyle(color: _muted, fontSize: 11),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ),
             );
           }
@@ -816,7 +938,7 @@ class _AfconFeatureScreenState extends State<AfconFeatureScreen> {
       await _loadSocialData();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Post submitted for community review.')),
+          const SnackBar(content: Text('Your post is live in the community.')),
         );
       }
     } catch (error) {
@@ -1560,26 +1682,6 @@ class _CommunityPostCard extends StatelessWidget {
             ),
           ],
         ),
-        if (post.status == 'pending') ...[
-          const SizedBox(height: 8),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF3D6),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-              child: Text(
-                'Awaiting community review',
-                style: TextStyle(
-                  color: Color(0xFF765600),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
-        ],
         const SizedBox(height: 14),
         if (post.content.isNotEmpty)
           Text(
@@ -2143,7 +2245,7 @@ class _CommunitySafetyNote extends StatelessWidget {
         SizedBox(width: 9),
         Expanded(
           child: Text(
-            'Be respectful. You can report a post from its options menu. Posts are visible only during this app session until community accounts and shared storage are connected.',
+            'Be respectful. You can report a post from its options menu. Your posts appear in the community as soon as you share them.',
             style: TextStyle(color: _ink, fontSize: 11, height: 1.45),
           ),
         ),

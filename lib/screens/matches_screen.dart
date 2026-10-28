@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -14,10 +16,12 @@ class MatchesScreen extends StatefulWidget {
     super.key,
     this.initialCategory = 'All',
     this.showBackButton = true,
+    this.isActive = false,
   });
 
   final String initialCategory;
   final bool showBackButton;
+  final bool isActive;
 
   @override
   State<MatchesScreen> createState() => _MatchesScreenState();
@@ -145,12 +149,21 @@ class _MatchesScreenState extends State<MatchesScreen>
                   return const _OfficialGroupsContent();
                 }
                 if (category == 'Stats') {
-                  return const _MatchDataScreen(
+                  return _MatchDataScreen(
                     feature: 'Events & stats',
                     showAppBar: false,
+                    isActive:
+                        widget.isActive &&
+                        _tabs[_tabController.index] == category,
                   );
                 }
-                return _MatchList(category: category, date: _selectedDate);
+                return _MatchList(
+                  category: category,
+                  date: _selectedDate,
+                  isActive:
+                      widget.isActive &&
+                      _tabs[_tabController.index] == category,
+                );
               }).toList(),
             ),
           ),
@@ -488,29 +501,65 @@ class _QualifierGraphic extends StatelessWidget {
 }
 
 class _MatchList extends StatefulWidget {
-  const _MatchList({required this.category, required this.date});
+  const _MatchList({
+    required this.category,
+    required this.date,
+    required this.isActive,
+  });
   final String category;
   final DateTime date;
+  final bool isActive;
 
   @override
   State<_MatchList> createState() => _MatchListState();
 }
 
-class _MatchListState extends State<_MatchList> {
+class _MatchListState extends State<_MatchList> with WidgetsBindingObserver {
   final _api = AfconApi();
   late Future<List<Map<String, dynamic>>> _matches;
+  Timer? _refreshTimer;
+  bool _appResumed = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadMatches();
+    _syncRefreshTimer();
   }
 
   @override
   void didUpdateWidget(covariant _MatchList oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.category != widget.category || oldWidget.date != widget.date)
+    if (oldWidget.category != widget.category ||
+        oldWidget.date != widget.date) {
       _loadMatches();
+    }
+    if (oldWidget.isActive != widget.isActive) {
+      _syncRefreshTimer();
+      if (widget.isActive && _appResumed) _refreshMatches();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appResumed = state == AppLifecycleState.resumed;
+    _syncRefreshTimer();
+    if (_appResumed && widget.isActive) _refreshMatches();
+  }
+
+  void _syncRefreshTimer() {
+    _refreshTimer?.cancel();
+    if (!widget.isActive || !_appResumed) return;
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => _refreshMatches(),
+    );
+  }
+
+  void _refreshMatches() {
+    if (!mounted || !widget.isActive || !_appResumed) return;
+    setState(_loadMatches);
   }
 
   void _loadMatches() {
@@ -544,6 +593,8 @@ class _MatchListState extends State<_MatchList> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
     _api.close();
     super.dispose();
   }
@@ -896,68 +947,331 @@ class _PublishedLineupTeam extends StatelessWidget {
   final String emptyMessage;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: const Color(0xFFE6EBE7)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          name,
-          style: const TextStyle(
-            color: Color(0xFF176B46),
-            fontSize: 14,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 6),
-        if (players.isEmpty)
-          Text(
-            emptyMessage,
-            style: const TextStyle(color: Color(0xFF66716B), fontSize: 11),
+  Widget build(BuildContext context) {
+    final starters = players
+        .where((player) => player['is_starting'] == true)
+        .toList();
+    final substitutes = players
+        .where((player) => player['is_starting'] != true)
+        .toList();
+    final formation = players.isEmpty
+        ? ''
+        : '${players.first['formation'] ?? ''}';
+    final lines = [
+      starters
+          .where(
+            (player) => _lineupPositionGroup(player, formation) == 'attack',
           )
-        else
-          for (final player in players)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 26,
-                    child: Text(
-                      '${player['shirt_number'] ?? '—'}',
-                      style: const TextStyle(
-                        color: Color(0xFF66716B),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
+          .toList(),
+      starters
+          .where(
+            (player) => _lineupPositionGroup(player, formation) == 'advanced',
+          )
+          .toList(),
+      starters
+          .where(
+            (player) => _lineupPositionGroup(player, formation) == 'midfield',
+          )
+          .toList(),
+      starters
+          .where(
+            (player) => _lineupPositionGroup(player, formation) == 'defence',
+          )
+          .toList(),
+      starters
+          .where(
+            (player) =>
+                _lineupPositionGroup(player, formation) == 'goalkeeper',
+          )
+          .toList(),
+    ].where((line) => line.isNotEmpty).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE6EBE7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  name,
+                  style: const TextStyle(
+                    color: Color(0xFF176B46),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (formation.isNotEmpty)
+                Text(
+                  formation,
+                  style: const TextStyle(
+                    color: Color(0xFF66716B),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (players.isEmpty)
+            Text(
+              emptyMessage,
+              style: const TextStyle(color: Color(0xFF66716B), fontSize: 11),
+            )
+          else ...[
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: AspectRatio(
+                  aspectRatio: 0.78,
+                  child: Container(
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white54),
+                      gradient: const LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [Color(0xFF24764D), Color(0xFF2E8759)],
+                        stops: [0.5, 0.5],
                       ),
                     ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      '${player['player_name'] ?? 'Player'}',
-                      style: const TextStyle(
-                        color: Color(0xFF1E1E1E),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.white54),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Align(
+                          child: Container(
+                            width: 68,
+                            height: 68,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white54),
+                            ),
+                          ),
+                        ),
+                        Positioned.fill(
+                          child: Align(
+                            alignment: Alignment.center,
+                            child: Container(height: 1, color: Colors.white54),
+                          ),
+                        ),
+                        Positioned.fill(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 12,
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                for (final line in lines)
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      for (final player in line)
+                                        Expanded(
+                                          child: _LineupPitchPlayer(
+                                            player: player,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  Text(
-                    '${player['position'] ?? 'Position TBC'}',
-                    style: const TextStyle(
-                      color: Color(0xFF66716B),
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-      ],
+            if (substitutes.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Text(
+                'SUBSTITUTES',
+                style: TextStyle(
+                  color: Color(0xFF66716B),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.7,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final player in substitutes)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF2F5F3),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        '${player['shirt_number'] ?? '—'} · ${player['player_name'] ?? 'Player'}',
+                        style: const TextStyle(
+                          color: Color(0xFF3D4B43),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+String _lineupPositionGroup(
+  Map<String, dynamic> player,
+  String formation,
+) {
+  final position = '${player['position'] ?? ''}'.trim().toUpperCase();
+  if (['GK', 'GOALKEEPER'].contains(position)) return 'goalkeeper';
+  if (['RB', 'LB', 'CB', 'RWB', 'LWB', 'DEF', 'DEFENDER'].contains(position)) {
+    return 'defence';
+  }
+  if ([
+    'ST',
+    'CF',
+    'FW',
+    'RF',
+    'LF',
+    'FORWARD',
+    'STRIKER',
+  ].contains(position)) {
+    return 'attack';
+  }
+  if (['4-2-3-1', '4-1-4-1'].contains(formation) &&
+      ['AM', 'RM', 'LM', 'RW', 'LW'].contains(position)) {
+    return 'advanced';
+  }
+  if (formation == '3-5-2' && ['RW', 'LW', 'RM', 'LM'].contains(position)) {
+    return 'midfield';
+  }
+  if (['RW', 'LW'].contains(position)) return 'attack';
+  return 'midfield';
+}
+
+class _LineupPitchPlayer extends StatelessWidget {
+  const _LineupPitchPlayer({required this.player});
+
+  final Map<String, dynamic> player;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = '${player['photo_url'] ?? ''}'.trim();
+    final playerName = '${player['player_name'] ?? 'Player'}'.trim();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              CircleAvatar(
+                radius: 19,
+                backgroundColor: const Color(0xFFE3EDE5),
+                child: imageUrl.isEmpty
+                    ? _playerInitial(playerName)
+                    : ClipOval(
+                        child: Image.network(
+                          imageUrl,
+                          width: 38,
+                          height: 38,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              _playerInitial(playerName),
+                        ),
+                      ),
+              ),
+              Positioned(
+                right: -3,
+                bottom: -3,
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 17),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 3,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${player['shirt_number'] ?? '—'}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFF176B46),
+                      fontSize: 8,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Text(
+            playerName.isEmpty ? 'Player' : playerName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              shadows: [Shadow(color: Colors.black54, blurRadius: 3)],
+            ),
+          ),
+          Text(
+            '${player['position'] ?? ''}',
+            maxLines: 1,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 8,
+              shadows: [Shadow(color: Colors.black54, blurRadius: 3)],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _playerInitial(String name) => Center(
+    child: Text(
+      name.isEmpty ? 'P' : name[0].toUpperCase(),
+      style: const TextStyle(
+        color: Color(0xFF176B46),
+        fontSize: 13,
+        fontWeight: FontWeight.w800,
+      ),
     ),
   );
 }
@@ -1497,8 +1811,8 @@ class _OfficialVenuePreview extends StatelessWidget {
       const _VenueDetailsCard(
         title: 'Akii-Bua Olympic Stadium',
         location: 'Lira City, Uganda',
-        detail: 'One of three national stadiums presented to CAF. Planned capacity: 20,000 upon completion.',
-        capacity: '20,000 planned',
+        detail: 'One of three national stadiums presented to CAF. Planned capacity: 20,000 people upon completion.',
+        capacity: '20,000 people planned',
         opened: 'Under development',
         coordinates: 'Not published',
       ),
@@ -1507,7 +1821,7 @@ class _OfficialVenuePreview extends StatelessWidget {
         title: 'Hoima City Stadium',
         location: 'Hoima City, Uganda',
         detail: 'A modern multi-purpose stadium in western Uganda. AFCON 2027 match allocation is not confirmed.',
-        capacity: '20,000',
+        capacity: '20,000 people',
         opened: '2025',
         coordinates: '1.43556° N, 31.39389° E',
       ),
@@ -1527,7 +1841,7 @@ class _OfficialVenuePreview extends StatelessWidget {
         detail: 'Stadium spotlight from a PAMOJA host country. Match allocation details are not shown.',
         asset: 'assets/images/new images/home screen images/benjamin-mkapa-stadium_ok.webp',
         imageLabel: 'Benjamin Mkapa Stadium',
-        capacity: '60,000',
+        capacity: '60,000 people',
         opened: '2007',
         coordinates: '6.8536° S, 39.2738° E',
       ),
@@ -1538,7 +1852,7 @@ class _OfficialVenuePreview extends StatelessWidget {
         detail: 'Stadium spotlight from a PAMOJA host country. Match allocation details are not shown.',
         asset: 'assets/images/new images/mandela stadium.PNG',
         imageLabel: 'Mandela National Stadium',
-        capacity: '45,000 (listed)',
+        capacity: '45,000 people (listed)',
         opened: '1997',
         coordinates: '0.34778° N, 32.65917° E',
       ),
@@ -1547,7 +1861,7 @@ class _OfficialVenuePreview extends StatelessWidget {
         title: 'Amaan Stadium',
         location: 'Zanzibar City, Tanzania',
         detail: 'A multi-purpose stadium in Zanzibar. AFCON 2027 match allocation is not confirmed.',
-        capacity: '15,000',
+        capacity: '15,000 people',
         opened: '1970',
         coordinates: '6.16600° S, 39.22386° E',
       ),
@@ -1556,7 +1870,7 @@ class _OfficialVenuePreview extends StatelessWidget {
         title: 'Moi International Sports Centre (Kasarani)',
         location: 'Nairobi, Kenya',
         detail: 'A major sports complex in Nairobi. AFCON 2027 match allocation is not confirmed.',
-        capacity: '48,063 (main stadium)',
+        capacity: '48,063 people (main stadium)',
         opened: '1987',
         coordinates: '1.22806° S, 36.89056° E',
       ),
@@ -1565,7 +1879,7 @@ class _OfficialVenuePreview extends StatelessWidget {
         title: 'Nyayo National Stadium',
         location: 'Nairobi, Kenya',
         detail: 'A multi-purpose stadium in Nairobi. AFCON 2027 match allocation is not confirmed.',
-        capacity: '18,000 (listed)',
+        capacity: '18,000 people (listed)',
         opened: '1983',
         coordinates: '1.30361° S, 36.82417° E',
       ),
@@ -1866,44 +2180,93 @@ class _BackendVenueCard extends StatelessWidget {
   final Map<String, dynamic> record;
 
   @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: 8),
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: const Color(0xFFE6EBE7)),
-    ),
-    child: Row(
-      children: [
-        const Icon(Icons.stadium_rounded, color: Color(0xFF800000)),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${record['name'] ?? 'Stadium'}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
+  Widget build(BuildContext context) {
+    final imageUrl = record['image_url']?.toString().trim();
+    final name = '${record['name'] ?? 'Stadium'}';
+    final location =
+        '${record['city'] ?? ''}${record['country'] == null ? '' : ', ${record['country']}'}';
+    final capacity = record['capacity'];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE6EBE7)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 16 / 8,
+            child: imageUrl != null && imageUrl.isNotEmpty
+                ? Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    semanticLabel: name,
+                    errorBuilder: (_, _, _) => const ColoredBox(
+                      color: Color(0xFFF5E6E6),
+                      child: Center(
+                        child: Icon(
+                          Icons.stadium_rounded,
+                          color: Color(0xFF800000),
+                          size: 42,
+                        ),
+                      ),
+                    ),
+                  )
+                : const ColoredBox(
+                    color: Color(0xFFF5E6E6),
+                    child: Center(
+                      child: Icon(
+                        Icons.stadium_rounded,
+                        color: Color(0xFF800000),
+                        size: 42,
+                      ),
+                    ),
+                  ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(13),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    color: Color(0xFF1E1E1E),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
-              Text(
-                '${record['city'] ?? ''}${record['country'] == null ? '' : ', ${record['country']}'}',
-                style: const TextStyle(fontSize: 11, color: Color(0xFF666666)),
-              ),
-            ],
+                if (location.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    location,
+                    style: const TextStyle(
+                      color: Color(0xFF176B46),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+                if (capacity != null) ...[
+                  const SizedBox(height: 7),
+                  Text(
+                    'Capacity: $capacity people',
+                    style: const TextStyle(
+                      color: Color(0xFF66716B),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
-        ),
-        if (record['capacity'] != null)
-          Text(
-            '${record['capacity']}',
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-          ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class _MatchStatusMessage extends StatelessWidget {
@@ -2225,29 +2588,76 @@ class MatchStatsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      const _MatchDataScreen(feature: 'Events & stats');
+      const _MatchDataScreen(feature: 'Events & stats', isActive: true);
 }
 
 class _MatchDataScreen extends StatefulWidget {
-  const _MatchDataScreen({required this.feature, this.showAppBar = true});
+  const _MatchDataScreen({
+    required this.feature,
+    this.showAppBar = true,
+    this.isActive = false,
+  });
   final String feature;
   final bool showAppBar;
+  final bool isActive;
 
   @override
   State<_MatchDataScreen> createState() => _MatchDataScreenState();
 }
 
-class _MatchDataScreenState extends State<_MatchDataScreen> {
+class _MatchDataScreenState extends State<_MatchDataScreen>
+    with WidgetsBindingObserver {
   final _api = AfconApi();
-  late final Future<List<Map<String, dynamic>>> _matches = _api.matches();
+  late Future<List<Map<String, dynamic>>> _matches = _api.matches();
   String? _selectedMatchId;
+  Timer? _refreshTimer;
+  bool _appResumed = true;
 
   bool get _isLineup => feature == 'Line-ups';
 
   String get feature => widget.feature;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _syncRefreshTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant _MatchDataScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive != widget.isActive) {
+      _syncRefreshTimer();
+      if (widget.isActive && _appResumed) _refreshMatchData();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appResumed = state == AppLifecycleState.resumed;
+    _syncRefreshTimer();
+    if (_appResumed && widget.isActive) _refreshMatchData();
+  }
+
+  void _syncRefreshTimer() {
+    _refreshTimer?.cancel();
+    if (!widget.isActive || !_appResumed) return;
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => _refreshMatchData(),
+    );
+  }
+
+  void _refreshMatchData() {
+    if (!mounted || !widget.isActive || !_appResumed) return;
+    setState(() => _matches = _api.matches());
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
     _api.close();
     super.dispose();
   }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../data/caf_pamoja_data.dart';
@@ -6,7 +8,9 @@ import '../services/afcon_api.dart';
 import 'teams_players_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
-  const ExploreScreen({super.key});
+  const ExploreScreen({super.key, this.isActive = false});
+
+  final bool isActive;
 
   @override
   State<ExploreScreen> createState() => _ExploreScreenState();
@@ -238,7 +242,11 @@ class _ExploreScreenState extends State<ExploreScreen>
                 ),
                 _CafCompetitionsContent(onMore: _showMoreCompetitions),
                 const _RankingsContent(),
-                const _GroupsContent(),
+                _GroupsContent(
+                  isActive:
+                      widget.isActive &&
+                      _topTabs[_topTabController.index] == 'Groups',
+                ),
                 const _TransfersContent(),
               ],
             ),
@@ -250,20 +258,57 @@ class _ExploreScreenState extends State<ExploreScreen>
 }
 
 class _GroupsContent extends StatefulWidget {
-  const _GroupsContent();
+  const _GroupsContent({required this.isActive});
+
+  final bool isActive;
 
   @override
   State<_GroupsContent> createState() => _GroupsContentState();
 }
 
-class _GroupsContentState extends State<_GroupsContent> {
+class _GroupsContentState extends State<_GroupsContent>
+    with WidgetsBindingObserver {
   final _api = AfconApi();
   late Future<List<Map<String, dynamic>>> _standings;
+  Timer? _refreshTimer;
+  bool _appResumed = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _standings = _loadStandings();
+    _syncRefreshTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant _GroupsContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive != widget.isActive) {
+      _syncRefreshTimer();
+      if (widget.isActive && _appResumed) _refreshStandings();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appResumed = state == AppLifecycleState.resumed;
+    _syncRefreshTimer();
+    if (_appResumed && widget.isActive) _refreshStandings();
+  }
+
+  void _syncRefreshTimer() {
+    _refreshTimer?.cancel();
+    if (!widget.isActive || !_appResumed) return;
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => _refreshStandings(),
+    );
+  }
+
+  void _refreshStandings() {
+    if (!mounted || !widget.isActive || !_appResumed) return;
+    setState(() => _standings = _loadStandings());
   }
 
   Future<List<Map<String, dynamic>>> _loadStandings() async {
@@ -334,6 +379,14 @@ class _GroupsContentState extends State<_GroupsContent> {
           );
         },
       );
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
+    _api.close();
+    super.dispose();
+  }
 }
 
 int _standingPosition(Map<String, dynamic> row) =>

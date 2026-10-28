@@ -205,7 +205,7 @@ class _AfconHomeState extends State<AfconHome> {
     if (title == 'Teams & players') {
       Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (context) => const TeamsPlayersScreen(),
+          builder: (context) => const TeamsPlayersScreen(autoRefresh: true),
         ),
       );
       return;
@@ -213,7 +213,9 @@ class _AfconHomeState extends State<AfconHome> {
 
     if (title == 'Updates') {
       Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (context) => const UpdatesScreen()),
+        MaterialPageRoute<void>(
+          builder: (context) => const UpdatesScreen(isActive: true),
+        ),
       );
       return;
     }
@@ -228,7 +230,8 @@ class _AfconHomeState extends State<AfconHome> {
     ].contains(title)) {
       Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (context) => AfconFeatureScreen(feature: title),
+          builder: (context) =>
+              AfconFeatureScreen(feature: title, autoRefresh: true),
         ),
       );
       return;
@@ -409,13 +412,17 @@ class _AfconHomeState extends State<AfconHome> {
                   onOpenMatchCategory: _openMatchCategory,
                   onOpenShortcut: _openShortcut,
                 ),
-                const UpdatesScreen(showBackButton: false),
+                UpdatesScreen(
+                  showBackButton: false,
+                  isActive: _selectedIndex == 1,
+                ),
                 MatchesScreen(
                   key: ValueKey('$_selectedMatchCategory-$_matchScreenVersion'),
                   initialCategory: _selectedMatchCategory,
                   showBackButton: false,
+                  isActive: _selectedIndex == 2,
                 ),
-                const ExploreScreen(),
+                ExploreScreen(isActive: _selectedIndex == 3),
                 const AfconFeatureScreen(
                   feature: 'Community',
                   showAppBar: false,
@@ -796,11 +803,12 @@ class _WomensFootballAdvert extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: AspectRatio(
-                aspectRatio: 8,
+                aspectRatio: 8.0875,
                 child: Image.asset(
-                  'assets/images/women images/seven.PNG',
+                  'assets/images/women images/home_banner.png',
                   width: double.infinity,
                   fit: BoxFit.cover,
+                  key: const Key('home-womens-promo-image'),
                   semanticLabel: 'CAF Women’s Champions League Egypt 2026, 1–15 November 2026',
                 ),
               ),

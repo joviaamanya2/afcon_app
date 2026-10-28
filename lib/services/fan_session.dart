@@ -66,11 +66,12 @@ class FanSession {
     try {
       final response = await _api.currentFan(savedToken);
       final data = response['data'];
-      if (data is! Map<String, dynamic>) {
+      final user = data is Map<String, dynamic> ? data['user'] : null;
+      if (user is! Map<String, dynamic>) {
         throw const FormatException('The account response is invalid.');
       }
       _token = savedToken;
-      _account = FanAccount.fromJson(data);
+      _account = FanAccount.fromJson(user);
       return _account;
     } on AfconApiException catch (error) {
       if (error.statusCode == 401) {
@@ -113,10 +114,11 @@ class FanSession {
       displayName: displayName,
     );
     final data = response['data'];
-    if (data is! Map<String, dynamic>) {
+    final user = data is Map<String, dynamic> ? data['user'] : null;
+    if (user is! Map<String, dynamic>) {
       throw const FormatException('The account response is invalid.');
     }
-    _account = FanAccount.fromJson(data);
+    _account = FanAccount.fromJson(user);
     return _account!;
   }
 

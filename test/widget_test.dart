@@ -103,6 +103,13 @@ void main() {
       250,
       scrollable: find.byType(Scrollable).first,
     );
+    final banner = tester.widget<Image>(
+      find.byKey(const Key('home-womens-promo-image')),
+    );
+    expect(
+      (banner.image as AssetImage).assetName,
+      'assets/images/women images/home_banner.png',
+    );
     await tester.tap(promotion);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
@@ -386,13 +393,13 @@ void main() {
     expect(find.text('Akii-Bua Olympic Stadium'), findsOneWidget);
     expect(find.text('Pitch'), findsNothing);
     expect(find.text('Lira City, Uganda'), findsOneWidget);
-    expect(find.textContaining('20,000 upon completion'), findsOneWidget);
+    expect(find.textContaining('20,000 people upon completion'), findsOneWidget);
     expect(find.text('Hoima City Stadium'), findsOneWidget);
     expect(find.text('Hoima City, Uganda'), findsOneWidget);
-    expect(find.text('48,063 (main stadium)'), findsOneWidget);
+    expect(find.text('48,063 people (main stadium)'), findsOneWidget);
     expect(find.text('1.43556° N, 31.39389° E'), findsOneWidget);
-    expect(find.text('60,000'), findsOneWidget);
-    expect(find.text('15,000'), findsOneWidget);
+    expect(find.text('60,000 people'), findsOneWidget);
+    expect(find.text('15,000 people'), findsOneWidget);
     expect(find.text('St Mary’s Stadium (Kitende)'), findsOneWidget);
     expect(find.text('Amaan Stadium'), findsOneWidget);
     expect(
@@ -929,7 +936,11 @@ void main() {
         tokenStore: backend.tokenStore,
       );
 
-      expect(await restored.restore(), isNotNull);
+      expect((await restored.restore())?.displayName, 'AFCON Fan');
+      expect(
+        (await restored.updateDisplayName('Supporter')).displayName,
+        'Supporter',
+      );
       await backend.api.followTeam(
         token: token,
         teamId: 'team-1',
@@ -985,7 +996,8 @@ void main() {
       expect(find.text('What a matchday!'), findsOneWidget);
       expect(find.text('AFCON Fan'), findsNWidgets(2));
       expect(find.byKey(const Key('community-share-post')), findsOneWidget);
-      expect(find.text('Awaiting community review'), findsOneWidget);
+      expect(find.text('Awaiting community review'), findsNothing);
+      expect(find.text('Your post is live in the community.'), findsOneWidget);
 
       await tester.tap(find.byTooltip('Post options'));
       await tester.pumpAndSettle();
@@ -1214,7 +1226,9 @@ Future<_CommunityTestHarness> _communityHarness() async {
         return respond({'error': 'unauthorized'}, 401);
       }
       return respond({
-        'data': {...user, 'displayName': displayName},
+        'data': {
+          'user': {...user, 'displayName': displayName},
+        },
       });
     }
     if (path == '/api/v1/auth/me' && request.method == 'PATCH') {
@@ -1225,7 +1239,9 @@ Future<_CommunityTestHarness> _communityHarness() async {
           (jsonDecode(request.body) as Map<String, dynamic>)['displayName']
               as String;
       return respond({
-        'data': {...user, 'displayName': displayName},
+        'data': {
+          'user': {...user, 'displayName': displayName},
+        },
       });
     }
     if (path.startsWith('/api/v1/community/') ||
@@ -1245,7 +1261,7 @@ Future<_CommunityTestHarness> _communityHarness() async {
         'displayName': displayName,
         'content': body['content'],
         'createdAt': DateTime.now().toIso8601String(),
-        'status': 'pending',
+        'status': 'published',
         'likesCount': 0,
         'commentsCount': 0,
         'likedByMe': false,

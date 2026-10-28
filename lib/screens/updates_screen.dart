@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../data/caf_pamoja_data.dart';
@@ -10,9 +12,14 @@ const _defaultNewsImage =
     'assets/images/new images/news images/b26i3fr0265.webp';
 
 class UpdatesScreen extends StatefulWidget {
-  const UpdatesScreen({super.key, this.showBackButton = true});
+  const UpdatesScreen({
+    super.key,
+    this.showBackButton = true,
+    this.isActive = false,
+  });
 
   final bool showBackButton;
+  final bool isActive;
 
   @override
   State<UpdatesScreen> createState() => _UpdatesScreenState();
@@ -24,15 +31,26 @@ class _UpdatesScreenState extends State<UpdatesScreen>
 
   late final TabController _tabController;
   final _commentStore = _ArticleCommentStore();
+  int _activeTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: _tabs.length, vsync: this);
+    _tabController.addListener(_handleTabChange);
+  }
+
+  void _handleTabChange() {
+    if (_tabController.indexIsChanging ||
+        _activeTabIndex == _tabController.index) {
+      return;
+    }
+    setState(() => _activeTabIndex = _tabController.index);
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_handleTabChange);
     _tabController.dispose();
     _commentStore.dispose();
     super.dispose();
@@ -89,7 +107,12 @@ class _UpdatesScreenState extends State<UpdatesScreen>
         controller: _tabController,
         children: _tabs
             .map(
-              (tab) => _UpdatesFeed(category: tab, commentStore: _commentStore),
+              (tab) => _UpdatesFeed(
+                category: tab,
+                commentStore: _commentStore,
+                isActive:
+                    widget.isActive && _tabs[_activeTabIndex] == tab,
+              ),
             )
             .toList(),
       ),
@@ -98,25 +121,35 @@ class _UpdatesScreenState extends State<UpdatesScreen>
 }
 
 class _UpdatesFeed extends StatefulWidget {
-  const _UpdatesFeed({required this.category, required this.commentStore});
+  const _UpdatesFeed({
+    required this.category,
+    required this.commentStore,
+    required this.isActive,
+  });
 
   final String category;
   final _ArticleCommentStore commentStore;
+  final bool isActive;
 
   @override
   State<_UpdatesFeed> createState() => _UpdatesFeedState();
 }
 
-class _UpdatesFeedState extends State<_UpdatesFeed> {
+class _UpdatesFeedState extends State<_UpdatesFeed>
+    with WidgetsBindingObserver {
   bool _showAll = false;
   final _api = AfconApi();
   List<Map<String, dynamic>> _backendArticles = [];
   bool _articleLoadFailed = false;
+  Timer? _refreshTimer;
+  bool _appResumed = true;
 
   @override
   void initState() {
     super.initState();
-    _loadArticles();
+    WidgetsBinding.instance.addObserver(this);
+    if (widget.isActive) _loadArticles();
+    _syncRefreshTimer();
   }
 
   Future<void> _loadArticles() async {
@@ -137,10 +170,34 @@ class _UpdatesFeedState extends State<_UpdatesFeed> {
       _articleLoadFailed = false;
       _loadArticles();
     }
+    if (oldWidget.isActive != widget.isActive) {
+      _syncRefreshTimer();
+      if (widget.isActive && _appResumed) _loadArticles();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appResumed = state == AppLifecycleState.resumed;
+    _syncRefreshTimer();
+    if (_appResumed && widget.isActive) _loadArticles();
+  }
+
+  void _syncRefreshTimer() {
+    _refreshTimer?.cancel();
+    if (!widget.isActive || !_appResumed) return;
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) {
+        if (mounted && widget.isActive && _appResumed) _loadArticles();
+      },
+    );
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
     _api.close();
     super.dispose();
   }
@@ -999,11 +1056,6 @@ class _ArticleScreenState extends State<_ArticleScreen> {
                 tooltip: 'Post comment',
                 onPressed: _submitComment,
                 icon: const Icon(Icons.send_rounded, color: _updatesMaroon),
-              ),
-              IconButton(
-                tooltip: 'Share via WhatsApp',
-                onPressed: _showShareMessage,
-                icon: const Icon(Icons.call_rounded, color: _updatesMaroon),
               ),
               IconButton(
                 tooltip: 'Share article',

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../services/afcon_api.dart';
@@ -11,12 +13,14 @@ class TeamsPlayersScreen extends StatefulWidget {
     this.showAppBar = true,
     this.showHeader = true,
     this.api,
+    this.autoRefresh = false,
   });
 
   final String? initialTeam;
   final bool showAppBar;
   final bool showHeader;
   final AfconApi? api;
+  final bool autoRefresh;
 
   @override
   State<TeamsPlayersScreen> createState() => _TeamsPlayersScreenState();
@@ -51,7 +55,8 @@ class PlayerProfileScreen extends StatelessWidget {
   );
 }
 
-class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
+class _TeamsPlayersScreenState extends State<TeamsPlayersScreen>
+    with WidgetsBindingObserver {
   static const _brandMaroon = Color(0xFF800000);
   static const _ink = Color(0xFF1E1E1E);
   static const _muted = Color(0xFF666666);
@@ -140,6 +145,8 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
   bool _playersLoading = false;
   String? _playersError;
   int _playersRequestVersion = 0;
+  Timer? _refreshTimer;
+  bool _appResumed = true;
 
   Future<void> _loadBackendTeams() async {
     try {
@@ -256,6 +263,8 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
     _api.close();
     super.dispose();
   }
@@ -263,7 +272,9 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadBackendTeams();
+    _syncRefreshTimer();
     final team = widget.initialTeam;
     if (team == null) return;
     for (final league in _leagues) {
@@ -286,8 +297,25 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
     }
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appResumed = state == AppLifecycleState.resumed;
+    _syncRefreshTimer();
+    if (_appResumed && widget.autoRefresh) _loadBackendTeams();
+  }
+
+  void _syncRefreshTimer() {
+    _refreshTimer?.cancel();
+    if (!_appResumed || !widget.autoRefresh) return;
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted && _appResumed) _loadBackendTeams();
+    });
+  }
+
   static const _playerStats = [
     'All players',
+    'Appearances',
+    'Minutes played',
     'Goals',
     'Assists',
     'Yellow cards',
@@ -302,9 +330,13 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
     'Big chances missed',
     'Distance covered (km)',
     'Sprints',
+    'Clean sheets',
+    'Saves',
+    'Penalty saves',
   ];
 
   String _playerStatLabel(String key) {
+    if (key == 'distance_covered_km') return 'Distance covered (km)';
     final label = key.replaceAll('_', ' ');
     return label.isEmpty
         ? label
@@ -346,8 +378,8 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
                     (key, value) => MapEntry(
                       _playerStatLabel('$key'),
                       value is num
-                          ? value.toInt()
-                          : int.tryParse('$value') ?? 0,
+                          ? value
+                          : num.tryParse('$value') ?? 0,
                     ),
                   )
                 : <String, int>{};
@@ -356,6 +388,7 @@ class _TeamsPlayersScreenState extends State<TeamsPlayersScreen> {
               '${record['position'] ?? 'Player'}',
               '${record['shirt_number'] ?? '—'}',
               stats,
+              record['photo_url']?.toString(),
             );
           }).toList()
         : const <_Player>[];
@@ -669,12 +702,19 @@ class _Club {
 }
 
 class _Player {
-  const _Player(this.name, this.position, this.number, [this.stats = const {}]);
+  const _Player(
+    this.name,
+    this.position,
+    this.number, [
+    this.stats = const {},
+    this.photoUrl,
+  ]);
 
   final String name;
   final String position;
   final String number;
-  final Map<String, int> stats;
+  final Map<String, num> stats;
+  final String? photoUrl;
 }
 
 class _ClubCard extends StatelessWidget {
@@ -851,6 +891,15 @@ class _PlayerCard extends StatelessWidget {
   final int? rank;
   final String? statLabel;
 
+  Widget _rankLabel(_Player player, int? rank) => Text(
+    rank?.toString() ?? player.number,
+    style: const TextStyle(
+      color: Color(0xFF800000),
+      fontSize: 12,
+      fontWeight: FontWeight.w800,
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -881,14 +930,17 @@ class _PlayerCard extends StatelessWidget {
                 key: Key('rank-badge-${player.name}'),
                 radius: 20,
                 backgroundColor: const Color(0xFFEAF5EF),
-                child: Text(
-                  rank?.toString() ?? player.number,
-                  style: const TextStyle(
-                    color: Color(0xFF800000),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
+                child: player.photoUrl != null && player.photoUrl!.isNotEmpty
+                    ? ClipOval(
+                        child: Image.network(
+                          player.photoUrl!,
+                          width: 40,
+                          height: 40,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => _rankLabel(player, rank),
+                        ),
+                      )
+                    : _rankLabel(player, rank),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -1080,6 +1132,15 @@ class _PlayerProfileScreenState extends State<_PlayerProfileScreen>
     super.dispose();
   }
 
+  Widget _playerNumber(_Player player) => Text(
+    player.number,
+    style: const TextStyle(
+      color: Color(0xFF800000),
+      fontSize: 28,
+      fontWeight: FontWeight.w900,
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final player = widget.player;
@@ -1112,14 +1173,20 @@ class _PlayerProfileScreenState extends State<_PlayerProfileScreen>
                         CircleAvatar(
                           radius: 43,
                           backgroundColor: Colors.white,
-                          child: Text(
-                            player.number,
-                            style: const TextStyle(
-                              color: Color(0xFF800000),
-                              fontSize: 28,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
+                          child:
+                              player.photoUrl != null &&
+                                  player.photoUrl!.isNotEmpty
+                              ? ClipOval(
+                                  child: Image.network(
+                                    player.photoUrl!,
+                                    width: 86,
+                                    height: 86,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) =>
+                                        _playerNumber(player),
+                                  ),
+                                )
+                              : _playerNumber(player),
                         ),
                         Positioned(
                           right: -3,
