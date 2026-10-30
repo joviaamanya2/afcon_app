@@ -926,25 +926,222 @@ class _MatchLineupPanelState extends State<_MatchLineupPanel> {
                 ),
               ),
               const SizedBox(height: 8),
-              _PublishedLineupTeam(name: home, players: homeRows),
-              const SizedBox(height: 8),
-              _PublishedLineupTeam(name: away, players: awayRows),
+              _PublishedLineupTeam(
+                name: home,
+                players: homeRows,
+                matchRecord: widget.record,
+                opponentName: away,
+                isHome: true,
+              ),
+              const SizedBox(height: 12),
+              _PublishedLineupTeam(
+                name: away,
+                players: awayRows,
+                matchRecord: widget.record,
+                opponentName: home,
+                isHome: false,
+              ),
             ],
           );
         },
       );
 }
 
+int _horizontalPositionRank(String position) {
+  final pos = position.toUpperCase().trim();
+  switch (pos) {
+    case 'LB':
+    case 'LWB':
+      return 10;
+    case 'LM':
+    case 'LAM':
+      return 20;
+    case 'LW':
+    case 'LF':
+      return 25;
+    case 'LCB':
+      return 35;
+    case 'LDM':
+    case 'LCM':
+      return 40;
+    case 'GK':
+    case 'GOALKEEPER':
+    case 'CB':
+    case 'DM':
+    case 'CM':
+    case 'AM':
+    case 'CF':
+    case 'ST':
+    case 'FW':
+      return 50;
+    case 'RCM':
+    case 'RDM':
+      return 60;
+    case 'RCB':
+      return 65;
+    case 'RM':
+    case 'RAM':
+      return 75;
+    case 'RW':
+    case 'RF':
+      return 80;
+    case 'RB':
+    case 'RWB':
+      return 90;
+    default:
+      return 50;
+  }
+}
+
+List<Map<String, dynamic>> _sortPitchLine(List<Map<String, dynamic>> linePlayers) {
+  final sorted = List<Map<String, dynamic>>.from(linePlayers);
+  sorted.sort((a, b) {
+    final rankA = _horizontalPositionRank('${a['position'] ?? ''}');
+    final rankB = _horizontalPositionRank('${b['position'] ?? ''}');
+    return rankA.compareTo(rankB);
+  });
+  return sorted;
+}
+
+class _FootballPitchPainter extends CustomPainter {
+  const _FootballPitchPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 1. Alternating lawn mower stripes
+    const stripeCount = 10;
+    final stripeHeight = size.height / stripeCount;
+    final stripePaintA = Paint()..color = const Color(0xFF1B6137);
+    final stripePaintB = Paint()..color = const Color(0xFF227242);
+
+    for (int i = 0; i < stripeCount; i++) {
+      canvas.drawRect(
+        Rect.fromLTWH(0, i * stripeHeight, size.width, stripeHeight),
+        i.isEven ? stripePaintA : stripePaintB,
+      );
+    }
+
+    // 2. Stadium floodlight top glow
+    final glowPaint = Paint()
+      ..shader = const RadialGradient(
+        center: Alignment(0, -1.0),
+        radius: 0.85,
+        colors: [Color(0x38FFFFFF), Color(0x001B6137)],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), glowPaint);
+
+    // 3. Pitch boundary with margin
+    const margin = 8.0;
+    final pitchRect = Rect.fromLTWH(
+      margin,
+      margin,
+      size.width - margin * 2,
+      size.height - margin * 2,
+    );
+
+    final linePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.72)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6;
+
+    canvas.drawRect(pitchRect, linePaint);
+
+    // Halfway line across the top
+    final halfY = pitchRect.top + 1.0;
+    canvas.drawLine(
+      Offset(pitchRect.left, halfY),
+      Offset(pitchRect.right, halfY),
+      linePaint,
+    );
+
+    // Center circle at halfway line
+    final centerCircleRadius = size.width * 0.16;
+    canvas.drawCircle(
+      Offset(size.width / 2, halfY),
+      centerCircleRadius,
+      linePaint,
+    );
+    final spotPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.85)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(size.width / 2, halfY), 3.0, spotPaint);
+
+    // 18-yard penalty box at bottom
+    final penaltyBoxWidth = pitchRect.width * 0.64;
+    final penaltyBoxHeight = pitchRect.height * 0.22;
+    final penaltyBoxLeft = (size.width - penaltyBoxWidth) / 2;
+    final penaltyBoxTop = pitchRect.bottom - penaltyBoxHeight;
+    final penaltyRect = Rect.fromLTWH(
+      penaltyBoxLeft,
+      penaltyBoxTop,
+      penaltyBoxWidth,
+      penaltyBoxHeight,
+    );
+    canvas.drawRect(penaltyRect, linePaint);
+
+    // 6-yard goal area
+    final goalAreaWidth = pitchRect.width * 0.32;
+    final goalAreaHeight = penaltyBoxHeight * 0.42;
+    final goalAreaLeft = (size.width - goalAreaWidth) / 2;
+    final goalAreaTop = pitchRect.bottom - goalAreaHeight;
+    canvas.drawRect(
+      Rect.fromLTWH(goalAreaLeft, goalAreaTop, goalAreaWidth, goalAreaHeight),
+      linePaint,
+    );
+
+    // Penalty spot
+    final penaltySpotY = pitchRect.bottom - penaltyBoxHeight * 0.65;
+    canvas.drawCircle(Offset(size.width / 2, penaltySpotY), 3.0, spotPaint);
+
+    // Penalty arc (D arc on top of 18-yard box)
+    final arcRadius = size.width * 0.14;
+    final arcRect = Rect.fromCircle(
+      center: Offset(size.width / 2, penaltySpotY),
+      radius: arcRadius,
+    );
+    canvas.drawArc(
+      arcRect,
+      3.14159 + 0.65,
+      3.14159 - 1.30,
+      false,
+      linePaint,
+    );
+
+    // Goal mouth net line at bottom
+    final goalWidth = goalAreaWidth * 0.65;
+    final goalLeft = (size.width - goalWidth) / 2;
+    canvas.drawLine(
+      Offset(goalLeft, pitchRect.bottom),
+      Offset(goalLeft + goalWidth, pitchRect.bottom),
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.5,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+typedef PublishedLineupTeamView = _PublishedLineupTeam;
+
 class _PublishedLineupTeam extends StatelessWidget {
   const _PublishedLineupTeam({
     required this.name,
     required this.players,
     this.emptyMessage = 'Confirmed line-up will appear here when published.',
+    this.matchRecord,
+    this.opponentName,
+    this.isHome = true,
   });
 
   final String name;
   final List<Map<String, dynamic>> players;
   final String emptyMessage;
+  final Map<String, dynamic>? matchRecord;
+  final String? opponentName;
+  final bool isHome;
 
   @override
   Widget build(BuildContext context) {
@@ -957,139 +1154,301 @@ class _PublishedLineupTeam extends StatelessWidget {
     final formation = players.isEmpty
         ? ''
         : '${players.first['formation'] ?? ''}';
+
+    // Group starters into tactical lines and sort left-to-right
+    final attackLine = _sortPitchLine(
+      starters.where((p) => _lineupPositionGroup(p, formation) == 'attack').toList(),
+    );
+    final advancedLine = _sortPitchLine(
+      starters.where((p) => _lineupPositionGroup(p, formation) == 'advanced').toList(),
+    );
+    final midfieldLine = _sortPitchLine(
+      starters.where((p) => _lineupPositionGroup(p, formation) == 'midfield').toList(),
+    );
+    final defenceLine = _sortPitchLine(
+      starters.where((p) => _lineupPositionGroup(p, formation) == 'defence').toList(),
+    );
+    final gkLine = _sortPitchLine(
+      starters.where((p) => _lineupPositionGroup(p, formation) == 'goalkeeper').toList(),
+    );
+
     final lines = [
-      starters
-          .where(
-            (player) => _lineupPositionGroup(player, formation) == 'attack',
-          )
-          .toList(),
-      starters
-          .where(
-            (player) => _lineupPositionGroup(player, formation) == 'advanced',
-          )
-          .toList(),
-      starters
-          .where(
-            (player) => _lineupPositionGroup(player, formation) == 'midfield',
-          )
-          .toList(),
-      starters
-          .where(
-            (player) => _lineupPositionGroup(player, formation) == 'defence',
-          )
-          .toList(),
-      starters
-          .where(
-            (player) =>
-                _lineupPositionGroup(player, formation) == 'goalkeeper',
-          )
-          .toList(),
+      attackLine,
+      advancedLine,
+      midfieldLine,
+      defenceLine,
+      gkLine,
     ].where((line) => line.isNotEmpty).toList();
 
+    // Match info metadata
+    final stage = '${matchRecord?['stage'] ?? matchRecord?['competition_name'] ?? 'AFCON QUALIFIERS'}'.toUpperCase();
+    final venue = '${matchRecord?['venue_name'] ?? 'STADIUM VENUE'}'.toUpperCase();
+    final kickoffRaw = '${matchRecord?['kickoff_at'] ?? ''}';
+    final kickoff = _formatKickoff(kickoffRaw);
+
+    final homeTeamName = '${matchRecord?['home_team'] ?? (isHome ? name : (opponentName ?? 'Home'))}';
+    final awayTeamName = '${matchRecord?['away_team'] ?? (isHome ? (opponentName ?? 'Away') : name)}';
+    final homeCrest = '${matchRecord?['home_crest_url'] ?? ''}'.trim();
+    final awayCrest = '${matchRecord?['away_crest_url'] ?? ''}'.trim();
+
     return Container(
-      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE6EBE7)),
+        color: const Color(0xFF0C1110),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF1E2B25)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x55000000),
+            blurRadius: 18,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  name,
-                  style: const TextStyle(
-                    color: Color(0xFF176B46),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
+          // 1. Broadcast Header Banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF18231E), Color(0xFF0D1512)],
+              ),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(13)),
+              border: Border(
+                bottom: BorderSide(color: Color(0xFF23332A), width: 1.5),
+              ),
+            ),
+            child: Row(
+              children: [
+                // Team Matchup (Crests/Badges with VS)
+                Expanded(
+                  child: Row(
+                    children: [
+                      _teamBadge(homeTeamName, homeCrest),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 6),
+                        child: Text(
+                          'VS',
+                          style: TextStyle(
+                            color: Color(0xFFE63946),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      _teamBadge(awayTeamName, awayCrest),
+                    ],
                   ),
+                ),
+                // Center Title: CONFIRMED LINEUP
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'CONFIRMED LINEUP',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    Text(
+                      name.toUpperCase(),
+                      style: const TextStyle(
+                        color: Color(0xFF9BE0B7),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 8),
+                // Right AFCON Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFB91C1C),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: const Text(
+                    'AFCON',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 2. Pitch or Empty Message
+          if (players.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Center(
+                child: Text(
+                  emptyMessage,
+                  style: const TextStyle(color: Color(0xFF8C9B92), fontSize: 11),
                 ),
               ),
-              if (formation.isNotEmpty)
-                Text(
-                  formation,
-                  style: const TextStyle(
-                    color: Color(0xFF66716B),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (players.isEmpty)
-            Text(
-              emptyMessage,
-              style: const TextStyle(color: Color(0xFF66716B), fontSize: 11),
             )
           else ...[
             Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 440),
                 child: AspectRatio(
-                  aspectRatio: 0.78,
+                  aspectRatio: 0.70,
                   child: Container(
                     clipBehavior: Clip.antiAlias,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white54),
-                      gradient: const LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        colors: [Color(0xFF24764D), Color(0xFF2E8759)],
-                        stops: [0.5, 0.5],
-                      ),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF1B6137),
                     ),
                     child: Stack(
                       children: [
-                        Positioned.fill(
-                          child: Padding(
-                            padding: const EdgeInsets.all(8),
-                            child: DecoratedBox(
+                        // Pitch markings background
+                        const Positioned.fill(
+                          child: CustomPaint(
+                            painter: _FootballPitchPainter(),
+                          ),
+                        ),
+
+                        // Match Info Badge on Top-Left (matching reference image)
+                        Positioned(
+                          top: 10,
+                          left: 10,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xEE0C1012),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: Colors.white24),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Colors.black87,
+                                  blurRadius: 6,
+                                  offset: Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  height: 2.5,
+                                  width: 24,
+                                  color: const Color(0xFFD3202F),
+                                  margin: const EdgeInsets.only(bottom: 2),
+                                ),
+                                Text(
+                                  stage,
+                                  style: const TextStyle(
+                                    color: Color(0xFF94A3B8),
+                                    fontSize: 7,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.6,
+                                  ),
+                                ),
+                                Text(
+                                  kickoff,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                Text(
+                                  venue,
+                                  style: const TextStyle(
+                                    color: Color(0xFFEF4444),
+                                    fontSize: 7,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.4,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        // Formation Badge on Bottom-Left (matching reference image)
+                        if (formation.isNotEmpty)
+                          Positioned(
+                            bottom: 10,
+                            left: 10,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
-                                border: Border.all(color: Colors.white54),
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [Color(0xFFA81C27), Color(0xFF6D0F17)],
+                                ),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: Colors.white30),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Colors.black87,
+                                    blurRadius: 6,
+                                    offset: Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text(
+                                    'FORMATION',
+                                    style: TextStyle(
+                                      color: Color(0xFFFEE2E2),
+                                      fontSize: 7,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                  Text(
+                                    formation,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                        ),
-                        Align(
-                          child: Container(
-                            width: 68,
-                            height: 68,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white54),
-                            ),
-                          ),
-                        ),
-                        Positioned.fill(
-                          child: Align(
-                            alignment: Alignment.center,
-                            child: Container(height: 1, color: Colors.white54),
-                          ),
-                        ),
+
+                        // Starting XI Players arranged on pitch
                         Positioned.fill(
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 12,
-                            ),
+                            padding: const EdgeInsets.fromLTRB(8, 24, 8, 12),
                             child: Column(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 for (final line in lines)
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                     children: [
                                       for (final player in line)
-                                        Expanded(
-                                          child: _LineupPitchPlayer(
-                                            player: player,
-                                          ),
-                                        ),
+                                        _LineupPitchPlayer(player: player),
                                     ],
                                   ),
                               ],
@@ -1102,48 +1461,152 @@ class _PublishedLineupTeam extends StatelessWidget {
                 ),
               ),
             ),
-            if (substitutes.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              const Text(
-                'SUBSTITUTES',
-                style: TextStyle(
-                  color: Color(0xFF66716B),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.7,
+
+            // 3. Substitutes Bench
+            if (substitutes.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0E1412),
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(13)),
+                  border: Border(
+                    top: BorderSide(color: Color(0xFF1C2621), width: 1.5),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text(
+                          'SUBSTITUTES',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          '(${substitutes.length} players)',
+                          style: const TextStyle(
+                            color: Color(0xFF84938B),
+                            fontSize: 9.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final player in substitutes)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF19241F),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: const Color(0xFF283A31)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (player['shirt_number'] != null) ...[
+                                  Text(
+                                    '#${player['shirt_number']}',
+                                    style: const TextStyle(
+                                      color: Color(0xFFF87171),
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                ],
+                                Text(
+                                  '${player['player_name'] ?? 'Player'}',
+                                  style: const TextStyle(
+                                    color: Color(0xFFD0DBD4),
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                if (player['position'] != null && '${player['position']}'.isNotEmpty) ...[
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '(${player['position']})',
+                                    style: const TextStyle(
+                                      color: Color(0xFF8FA096),
+                                      fontSize: 8.5,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final player in substitutes)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF2F5F3),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Text(
-                        '${player['shirt_number'] ?? '—'} · ${player['player_name'] ?? 'Player'}',
-                        style: const TextStyle(
-                          color: Color(0xFF3D4B43),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ],
           ],
         ],
       ),
     );
+  }
+
+  Widget _teamBadge(String teamName, String crestUrl) {
+    if (crestUrl.isNotEmpty) {
+      return ClipOval(
+        child: Image.network(
+          crestUrl,
+          width: 24,
+          height: 24,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _textBadge(teamName),
+        ),
+      );
+    }
+    return _textBadge(teamName);
+  }
+
+  Widget _textBadge(String teamName) {
+    final initials = teamName.length >= 3 ? teamName.substring(0, 3).toUpperCase() : teamName.toUpperCase();
+    return Container(
+      width: 24,
+      height: 24,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: const Color(0xFF26382F),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Text(
+        initials,
+        style: const TextStyle(
+          color: Color(0xFFA4F4C5),
+          fontSize: 8,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+
+  static String _formatKickoff(String iso) {
+    if (iso.isEmpty) return 'MATCHDAY';
+    try {
+      final dt = DateTime.parse(iso).toLocal();
+      final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+      final minute = dt.minute.toString().padLeft(2, '0');
+      final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+      return 'TODAY $hour:$minute $ampm';
+    } catch (_) {
+      return 'MATCHDAY';
+    }
   }
 }
 
@@ -1187,93 +1650,139 @@ class _LineupPitchPlayer extends StatelessWidget {
   Widget build(BuildContext context) {
     final imageUrl = '${player['photo_url'] ?? ''}'.trim();
     final playerName = '${player['player_name'] ?? 'Player'}'.trim();
+    final shirtNumber = player['shirt_number'] == null
+        ? ''
+        : '${player['shirt_number']}';
+    final position = '${player['position'] ?? ''}'.trim();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Player avatar/cutout
           Stack(
             clipBehavior: Clip.none,
+            alignment: Alignment.center,
             children: [
-              CircleAvatar(
-                radius: 19,
-                backgroundColor: const Color(0xFFE3EDE5),
-                child: imageUrl.isEmpty
-                    ? _playerInitial(playerName)
-                    : ClipOval(
-                        child: Image.network(
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF16251E),
+                  border: Border.all(color: Colors.white, width: 1.8),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black54,
+                      blurRadius: 6,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: ClipOval(
+                  child: imageUrl.isNotEmpty
+                      ? Image.network(
                           imageUrl,
-                          width: 38,
-                          height: 38,
+                          width: 44,
+                          height: 44,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) =>
-                              _playerInitial(playerName),
-                        ),
-                      ),
+                              _playerInitialAvatar(playerName, shirtNumber),
+                        )
+                      : _playerInitialAvatar(playerName, shirtNumber),
+                ),
               ),
-              Positioned(
-                right: -3,
-                bottom: -3,
-                child: Container(
-                  constraints: const BoxConstraints(minWidth: 17),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 3,
-                    vertical: 1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '${player['shirt_number'] ?? '—'}',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFF176B46),
-                      fontSize: 8,
-                      fontWeight: FontWeight.w900,
+              if (shirtNumber.isNotEmpty)
+                Positioned(
+                  right: -3,
+                  bottom: -2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD3202F),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.white, width: 1),
+                    ),
+                    child: Text(
+                      shirtNumber,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 3),
-          Text(
-            playerName.isEmpty ? 'Player' : playerName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 9,
-              fontWeight: FontWeight.w800,
-              shadows: [Shadow(color: Colors.black54, blurRadius: 3)],
+          // Broadcast name plate matching reference image
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF1A1F23), Color(0xFF0A0D0E)],
+              ),
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(color: const Color(0xFFD3202F), width: 1.2),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black87,
+                  blurRadius: 4,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Text(
+              playerName.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.4,
+              ),
             ),
           ),
-          Text(
-            '${player['position'] ?? ''}',
-            maxLines: 1,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 8,
-              shadows: [Shadow(color: Colors.black54, blurRadius: 3)],
+          if (position.isNotEmpty) ...[
+            const SizedBox(height: 1),
+            Text(
+              position.toUpperCase(),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.85),
+                fontSize: 7.5,
+                fontWeight: FontWeight.w700,
+                shadows: const [
+                  Shadow(color: Colors.black87, blurRadius: 3),
+                ],
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _playerInitial(String name) => Center(
-    child: Text(
-      name.isEmpty ? 'P' : name[0].toUpperCase(),
-      style: const TextStyle(
-        color: Color(0xFF176B46),
-        fontSize: 13,
-        fontWeight: FontWeight.w800,
+  Widget _playerInitialAvatar(String name, String shirtNum) {
+    return Container(
+      color: const Color(0xFF1E3A2F),
+      child: Center(
+        child: Text(
+          shirtNum.isNotEmpty ? '#$shirtNum' : (name.isNotEmpty ? name[0].toUpperCase() : 'P'),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _LiveVideoCard extends StatelessWidget {
@@ -2558,15 +3067,21 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                   _PublishedLineupTeam(
                     name: home,
                     players: homeRows,
+                    matchRecord: widget.record,
+                    opponentName: away,
+                    isHome: true,
                     emptyMessage:
                         snapshot.connectionState == ConnectionState.waiting
                         ? 'Loading confirmed line-up…'
                         : 'Confirmed line-up will appear here when published.',
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   _PublishedLineupTeam(
                     name: away,
                     players: awayRows,
+                    matchRecord: widget.record,
+                    opponentName: home,
+                    isHome: false,
                     emptyMessage:
                         snapshot.connectionState == ConnectionState.waiting
                         ? 'Loading confirmed line-up…'

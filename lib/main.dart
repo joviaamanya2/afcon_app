@@ -225,7 +225,6 @@ class _AfconHomeState extends State<AfconHome> {
       'Events',
       'Venues',
       'Ask AFCON',
-      'Follow teams',
       'Notifications',
     ].contains(title)) {
       Navigator.of(context).push(
